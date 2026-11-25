@@ -1,0 +1,24 @@
+diff --git a/Tools/simulation/gazebo-classic/sitl_gazebo-classic b/Tools/simulation/gazebo-classic/sitl_gazebo-classic
+--- a/Tools/simulation/gazebo-classic/sitl_gazebo-classic
++++ b/Tools/simulation/gazebo-classic/sitl_gazebo-classic
+@@ -1 +1 @@
+-Subproject commit da7206e057703cc645770f02437013358b71e1c0
++Subproject commit da7206e057703cc645770f02437013358b71e1c0-dirty
+diff --git a/platforms/nuttx/NuttX/apps b/platforms/nuttx/NuttX/apps
+--- a/platforms/nuttx/NuttX/apps
++++ b/platforms/nuttx/NuttX/apps
+@@ -1 +1 @@
+-Subproject commit e37940d8535f603a16b8f6f21c21edaf584218aa
++Subproject commit e37940d8535f603a16b8f6f21c21edaf584218aa-dirty
+diff --git a/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake b/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
+index b67fe54..8b57bf7 100644
+--- a/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
++++ b/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
+@@ -50,6 +50,7 @@ if(gazebo_FOUND)
+ 			-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+ 			-DSEND_ODOMETRY_DATA=ON
+ 			-DGENERATE_ROS_MODELS=ON
++		-DBUILD_GSTREAMER_PLUGIN=OFF # 本机无 GStreamer 开发包且无 sudo, iris 不需要该相机插件 (本地修改)
+ 		BINARY_DIR ${PX4_BINARY_DIR}/build_gazebo-classic
+ 		INSTALL_COMMAND ""
+ 		DEPENDS git_sitl_gazebo-classic

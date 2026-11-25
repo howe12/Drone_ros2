@@ -1,0 +1,16 @@
+# 第三方仓库（不入库，用 scripts/setup_workspace.sh 复现）
+/PX4-Autopilot/
+/Micro-XRCE-DDS-Agent/
+/ros2_ws/src/px4_msgs/
+/ros2_ws/src/px4_ros_com/
+/ros2_ws/src/px4-offboard/
+
+# 编译产物
+/ros2_ws/build/
+/ros2_ws/install/
+/ros2_ws/log/
+__pycache__/
+*.pyc
+
+# 日志与临时文件
+*.log

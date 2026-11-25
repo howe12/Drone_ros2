@@ -1,0 +1,15 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 502ab76..3de9138 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -90,6 +90,10 @@ if (BUILD_GSTREAMER_PLUGIN)
+   endif()
+ endif()
+ 
++# 本地修复: BUILD_GSTREAMER_PLUGIN=OFF 时上游不会 find_package(Qt5),
++# 但 gazebo_user_camera_plugin 仍无条件使用 QT5_WRAP_CPP, 这里补上
++find_package(Qt5 COMPONENTS Core Widgets Test REQUIRED)
++
+ pkg_check_modules(OGRE OGRE)
+ 
+ if("${GAZEBO_VERSION}" VERSION_LESS "8.0")
