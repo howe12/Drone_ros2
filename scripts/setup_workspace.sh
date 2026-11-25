@@ -29,6 +29,21 @@ mkdir -p ros2_ws/src
 [ -d ros2_ws/src/px4_ros_com ]  || git clone -b release/1.15 --depth 1 https://github.com/PX4/px4_ros_com.git ros2_ws/src/px4_ros_com
 [ -d ros2_ws/src/px4-offboard ] || git clone --depth 1 https://github.com/Jaeyoung-Lim/px4-offboard.git ros2_ws/src/px4-offboard
 
+echo "[2.5/6] 克隆 XTDrone2 (可选仿真平台, 锁定 commit 15b2ef6)..."
+mkdir -p third_party
+if [ ! -d third_party/XTDrone2 ]; then
+    git clone --depth 1 https://github.com/zuiyue52/XTDrone2.git third_party/XTDrone2 \
+    || git clone --depth 1 https://gitee.com/andy_zhuo/XTDrone2.git third_party/XTDrone2
+    # 锁定到已验证的 commit (GitHub 允许按 SHA 浅 fetch)
+    git -C third_party/XTDrone2 fetch --depth 1 origin 15b2ef6eb9fd8c2631f931a27064f323d26a9ed3 \
+        && git -C third_party/XTDrone2 checkout 15b2ef6eb9fd8c2631f931a27064f323d26a9ed3
+fi
+# 防止其自带的 px4_msgs 子模块与 ros2_ws/src/px4_msgs 重复 (colcon 重复包报错)
+mkdir -p third_party/XTDrone2/xtd2_third_party_pkgs/px4_msgs
+touch third_party/XTDrone2/xtd2_third_party_pkgs/px4_msgs/COLCON_IGNORE
+# 本地适配: 暴露 px4_dir / model_name launch 参数 (指向本工作区的 PX4)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0003-xtd2-px4-dir-and-model-args.patch" 2>/dev/null || echo "  补丁3已应用, 跳过"
+
 echo "[3/6] 应用本地适配补丁 (无 sudo 环境)..."
 git -C PX4-Autopilot apply "$ROOT/patches/0001-px4-sitl-gazebo-classic-gstreamer-off.patch" 2>/dev/null || echo "  补丁1已应用, 跳过"
 SGC=PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic
@@ -61,7 +76,7 @@ echo "[6/6] 编译 PX4 SITL + Gazebo 插件 + ROS2 工作区..."
   && ninja -C build/px4_sitl_default sitl_gazebo-classic )
 # 注: make 的 jobserver 在部分环境报 fd 错误, 上面已自动回退为 ninja 直调
 ( source /opt/ros/humble/setup.bash \
-  && cd ros2_ws && colcon build --symlink-install )
+  && cd ros2_ws && colcon build --symlink-install --base-paths src ../third_party/XTDrone2 )
 
 echo ""
 echo "================ 复现完成 ================"

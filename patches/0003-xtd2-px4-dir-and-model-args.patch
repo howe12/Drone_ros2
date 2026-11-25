@@ -1,0 +1,64 @@
+diff --git a/xtd2_launch/launch/ros2_single_vehicle_demo_launch.py b/xtd2_launch/launch/ros2_single_vehicle_demo_launch.py
+index 8b2f665..33405df 100644
+--- a/xtd2_launch/launch/ros2_single_vehicle_demo_launch.py
++++ b/xtd2_launch/launch/ros2_single_vehicle_demo_launch.py
+@@ -29,6 +29,8 @@ def generate_launch_description():
+     model_name_arg = DeclareLaunchArgument('model_name', default_value='gz_x500', description='Name of the model to spawn')
+     id_arg = DeclareLaunchArgument('id', default_value='0', description='ID of the model to spawn')
+     name_space_arg = DeclareLaunchArgument('namespace', default_value='x500_0', description='ROS namespace for the model')
++    # 本地适配: 暴露 px4_dir, 支持指向自定义工作区内的 PX4
++    px4_dir_arg = DeclareLaunchArgument('px4_dir', default_value='~/PX4-Autopilot', description='PX4-Autopilot directory')
+     
+     #####################
+     # Gazebo Simulation #
+@@ -69,9 +71,10 @@ def generate_launch_description():
+             ]),
+             launch_arguments={
+                 'world_name': LaunchConfiguration('world_name'),
+-                'model': 'gz_x500',
+-                'id': '0',
+-                'namespace': 'x500_0',
++                'model': LaunchConfiguration('model_name'),
++                'id': LaunchConfiguration('id'),
++                'namespace': LaunchConfiguration('namespace'),
++                'px4_dir': LaunchConfiguration('px4_dir'),
+             }.items()
+         )
+ 
+@@ -81,6 +84,7 @@ def generate_launch_description():
+         model_name_arg,
+         id_arg,
+         name_space_arg,
++        px4_dir_arg,
+         world_launch,
+         xrce_dds_process,
+         spawn
+diff --git a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+index 79a5ff3..ca1c8d1 100644
+--- a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
++++ b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+@@ -29,6 +29,8 @@ def generate_launch_description():
+     model_name_arg = DeclareLaunchArgument('model', description='Name of the model to spawn')
+     id_arg = DeclareLaunchArgument('id', description='ID of the model to spawn')
+     name_space_arg = DeclareLaunchArgument('namespace', description='ROS namespace for the model')
++    # 本地适配: 暴露 px4_dir, 支持指向自定义工作区内的 PX4 (默认 ~/PX4-Autopilot)
++    px4_dir_arg = DeclareLaunchArgument('px4_dir', default_value='~/PX4-Autopilot', description='PX4-Autopilot directory')
+ 
+     x_arg = DeclareLaunchArgument('x', default_value='0', description='X position of the model to spawn')
+     y_arg = DeclareLaunchArgument('y', default_value='0', description='Y position of the model to spawn')
+@@ -43,6 +45,7 @@ def generate_launch_description():
+         package='xtd2_launch',
+         executable='px4_launch',
+         arguments=[
++            '--px4-dir', LaunchConfiguration('px4_dir'),
+             '--world', LaunchConfiguration('world_name'),
+             '--model', LaunchConfiguration('model'),
+             '--id', LaunchConfiguration('id'),
+@@ -88,6 +91,7 @@ def generate_launch_description():
+         model_name_arg,
+         id_arg,
+         name_space_arg,
++        px4_dir_arg,
+         x_arg,
+         y_arg,
+         z_arg,
