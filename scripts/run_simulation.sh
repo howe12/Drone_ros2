@@ -65,11 +65,11 @@ xtd2)
     fi
     echo "[xtd2] 模型: $MODEL  PX4: $ROOT/PX4-Autopilot"
     echo "XTDrone2 的 launch 会自行启动 MicroXRCEAgent / gz sim / PX4 SITL / 通信节点"
-    # 注意: bridge_launch 依赖 ros_gz_bridge 的 Python actions (Humble 二进制包暂无),
-    #       该节点可能报错退出, 不影响飞行主链路; 传感器桥接适配见 README "XTDrone2 集成"
-    exec ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
+    LOGDIR="$ROOT/logs"; mkdir -p "$LOGDIR"
+    # 日志写 /develop 大盘并限幅 (磁盘安全, 见 README)
+    ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
         px4_dir:="$ROOT/PX4-Autopilot" \
-        model_name:="$MODEL"
+        model_name:="$MODEL" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
     ;;
 
 *)

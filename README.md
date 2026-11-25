@@ -123,8 +123,20 @@ bash scripts/run_simulation.sh xtd2 [模型]      # Gazebo Harmonic + XTDrone2 (
 | XTDrone2 全部 7 包在 Humble 编译 | ✔ 已验证（共 11 包通过） |
 | px4_msgs 重复冲突 | ✔ 已用 COLCON_IGNORE 处理 |
 | px4_dir / model_name 参数化 | ✔ 补丁 0003 |
-| Gazebo Harmonic 运行时 | ⏳ 需 sudo 执行 `scripts/install_gz_harmonic.sh`（已内置 /usr/bin/gz 冲突 diversion 保护；教程推荐 24.04+Jazzy+Harmonic，本机 22.04+Humble 代码层已验证兼容） |
-| ros_gz_bridge 适配 | ✔ 死导入已移除（补丁 0004，实际桥接走 yaml + ros_gz_bridge.launch.py，Humble 支持）；⏳ Harmonic 话题桥接需从源码编译 ros_gz（humble 分支, `GZ_VERSION=harmonic`，二进制包只支持 Fortress），源码放 `third_party/ros_gz` |
+| Gazebo Harmonic | ✔ 已安装 8.15.0（diversion 会把 gz-tools2 的 gz 也改道为 /usr/bin/gz-classic，脚本已自动建 ~/.local/bin/gz 符号链接） |
+| PX4 gz_bridge 模块 | ✔ 装 Harmonic 后已重配置重编（cmake -B + ninja） |
+| ros_gz 源码编译 (GZ_VERSION=harmonic) | ✔ third_party/ros_gz (humble 分支)，桥接 pose/odometry 实测可用 |
+| ros_gz_bridge.launch.py 缺失 | ✔ 补丁 0006 改调 parameter_bridge（humble 支持新 yaml schema） |
+| px4-offboard 误注册 visualize.rviz 包标记 | ✔ 补丁 0005（会炸 ros_gz humble 的 gz_sim.launch 遍历） |
+| **xtd2 平台飞行验证** | ✔ gz_x500 起飞 5m → 半径 3m 画圆 → 降落上锁（截图 04–06） |
+
+注意事项:
+- `drone_sim` 是 ament_python 包，colcon 实际是**复制**而非符号链接源码——改完代码必须
+  `colcon build --packages-select drone_sim` 再运行。
+- x500 出生点有高度偏移（地面 z≈-0.85 而非 0），降落判定已改为以上锁为准。
+- 多次 kill -9 后若出现 DDS 发现异常（新节点收不到话题），整栈重启即可恢复。
+- 飞行控制复用 `drone_sim` 节点，把 5 个 `/fmu/...` 话题重映射到 `/x500_0/fmu/...` 即可
+  （见 `logs/` 同级的运行记录；XTDrone2 的 `xtd2_communication` 也提供自己的指令话题）。
 
 ## 开发入口 (drone_sim)
 
@@ -161,6 +173,20 @@ INIT → 请求 Offboard+解锁 → TAKEOFF → CIRCLE → LAND → DONE。
 **③ 降落完成并自动上锁**（节点日志: `已降落并上锁, 演示完成 ✔`）:
 
 ![降落完成](screenshots/03_landed.png)
+
+### XTDrone2 平台运行截图（Gazebo Harmonic + gz_x500, aruco 世界）
+
+**④ x500 起飞爬升**（遥测高度 4.78 m）:
+
+![x500起飞](screenshots/04_xtd2_x500_takeoff.png)
+
+**⑤ x500 画圆**（遥测半径 3.16 m, 高度 4.81 m）:
+
+![x500画圆](screenshots/05_xtd2_x500_circle.png)
+
+**⑥ x500 降落**（PX4 日志: Landing detected / Disarmed by landing）:
+
+![x500降落](screenshots/06_xtd2_x500_landed.png)
 
 ### 本地适配修改（无 sudo 环境）
 1. `PX4-Autopilot/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake`:

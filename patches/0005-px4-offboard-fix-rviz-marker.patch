@@ -1,0 +1,15 @@
+diff --git a/setup.py b/setup.py
+index 82ad453..69a292d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -11,8 +11,8 @@ setup(
+     data_files=[
+         ('share/ament_index/resource_index/packages',
+             ['resource/' + package_name]),
+-        ('share/ament_index/resource_index/packages',
+-            ['resource/' + 'visualize.rviz']),
++        # 本地修复(补丁0005): 上游误将 visualize.rviz 注册为 ament 包标记,
++        # 导致 ros_gz(humble) gz_sim.launch.py 遍历包名时崩溃; rviz 文件由下方 glob 正确安装
+         ('share/' + package_name, ['package.xml']),
+         (os.path.join('share', package_name), glob('launch/*launch.[pxy][yma]*')),
+         (os.path.join('share', package_name), glob('resource/*rviz'))

@@ -1,0 +1,15 @@
+diff --git a/xtd2_launch/xtd2_launch/utils/bridge_launch.py b/xtd2_launch/xtd2_launch/utils/bridge_launch.py
+index 77f4f1e..82a71fd 100644
+--- a/xtd2_launch/xtd2_launch/utils/bridge_launch.py
++++ b/xtd2_launch/xtd2_launch/utils/bridge_launch.py
+@@ -41,7 +41,9 @@ def main():
+         yaml.safe_dump(yaml.safe_load(template), file)
+ 
+ 
+-    pose_bridge_cmd = f'ros2 launch ros_gz_bridge ros_gz_bridge.launch.py bridge_name:=ros_gz_bridge_{args.ros_ns} config_file:={yaml_tmp_output}'
++    # 本地适配(补丁0006): Humble 的 ros_gz_bridge 无 ros_gz_bridge.launch.py (仅 jazzy+ 提供),
++    # 直接调 parameter_bridge + config_file (humble 源码版支持 ros_topic_name/gz_topic_name/lazy 新 schema)
++    pose_bridge_cmd = f'ros2 run ros_gz_bridge parameter_bridge --ros-args -r __node:=ros_gz_bridge_{args.ros_ns} -p config_file:={yaml_tmp_output}'
+ 
+     _handle = subprocess.Popen(['bash', '-c', pose_bridge_cmd])
+ 

@@ -28,6 +28,8 @@ mkdir -p ros2_ws/src
 [ -d ros2_ws/src/px4_msgs ]     || git clone -b release/1.15 --depth 1 https://github.com/PX4/px4_msgs.git ros2_ws/src/px4_msgs
 [ -d ros2_ws/src/px4_ros_com ]  || git clone -b release/1.15 --depth 1 https://github.com/PX4/px4_ros_com.git ros2_ws/src/px4_ros_com
 [ -d ros2_ws/src/px4-offboard ] || git clone --depth 1 https://github.com/Jaeyoung-Lim/px4-offboard.git ros2_ws/src/px4-offboard
+# 本地适配: 修复 px4-offboard 误注册 visualize.rviz 包标记 (会炸 ros_gz humble 的 gz_sim.launch)
+git -C ros2_ws/src/px4-offboard apply "$ROOT/patches/0005-px4-offboard-fix-rviz-marker.patch" 2>/dev/null || echo "  补丁5已应用, 跳过"
 
 echo "[2.5/6] 克隆 XTDrone2 (可选仿真平台, 锁定 commit 15b2ef6)..."
 mkdir -p third_party
@@ -45,6 +47,8 @@ touch third_party/XTDrone2/xtd2_third_party_pkgs/px4_msgs/COLCON_IGNORE
 git -C third_party/XTDrone2 apply "$ROOT/patches/0003-xtd2-px4-dir-and-model-args.patch" 2>/dev/null || echo "  补丁3已应用, 跳过"
 # 本地适配: 移除未使用的 RosGzBridge 导入 (Humble 二进制包无该 Python 模块, 会炸 launch 加载)
 git -C third_party/XTDrone2 apply "$ROOT/patches/0004-xtd2-remove-unused-rosgzbridge-import.patch" 2>/dev/null || echo "  补丁4已应用, 跳过"
+# 本地适配: Humble 无 ros_gz_bridge.launch.py, 桥接改调 parameter_bridge
+git -C third_party/XTDrone2 apply "$ROOT/patches/0006-xtd2-bridge-parameter-bridge.patch" 2>/dev/null || echo "  补丁6已应用, 跳过"
 
 echo "[3/6] 应用本地适配补丁 (无 sudo 环境)..."
 git -C PX4-Autopilot apply "$ROOT/patches/0001-px4-sitl-gazebo-classic-gstreamer-off.patch" 2>/dev/null || echo "  补丁1已应用, 跳过"
@@ -77,6 +81,22 @@ echo "[6/6] 编译 PX4 SITL + Gazebo 插件 + ROS2 工作区..."
   && { DONT_RUN=1 make px4_sitl -j"$NPROC" || ninja -C build/px4_sitl_default -j"$NPROC"; } \
   && ninja -C build/px4_sitl_default sitl_gazebo-classic )
 # 注: make 的 jobserver 在部分环境报 fd 错误, 上面已自动回退为 ninja 直调
+
+echo "[6.5/6] ros_gz 源码 (仅 xtd2 平台需要; 二进制包只支持 Fortress, Harmonic 需源码编译)..."
+if [ ! -d third_party/ros_gz ]; then
+    git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git third_party/ros_gz \
+    || git clone --depth 1 -b humble https://ghfast.top/https://github.com/gazebosim/ros_gz.git third_party/ros_gz
+fi
+# 若已装 gz-harmonic (bash scripts/install_gz_harmonic.sh), 按 Harmonic 编译桥接:
+if gz sim --version 2>/dev/null | grep -q "Gazebo Sim"; then
+    ( source /opt/ros/humble/setup.bash && cd ros2_ws \
+      && GZ_VERSION=harmonic colcon build --symlink-install \
+           --base-paths src ../third_party/XTDrone2 ../third_party/ros_gz \
+           --packages-up-to ros_gz_bridge ros_gz_sim ros_gz_image )
+    # PX4 需重配置以编译 gz_bridge 模块 (依赖 gz-transport13)
+    ( cd PX4-Autopilot && cmake -B build/px4_sitl_default && ninja -C build/px4_sitl_default -j"$NPROC" )
+fi
+
 ( source /opt/ros/humble/setup.bash \
   && cd ros2_ws && colcon build --symlink-install --base-paths src ../third_party/XTDrone2 )
 

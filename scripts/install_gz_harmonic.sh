@@ -22,6 +22,12 @@ if dpkg -S /usr/bin/gz 2>/dev/null | grep -q "^gazebo:"; then
 fi
 
 sudo apt-get install -y gz-harmonic
+
+# 注意: diversion 对一切包生效, gz-tools2 的 /usr/bin/gz 也会被改道到 /usr/bin/gz-classic
+# (即 Harmonic 的 gz)。建用户级符号链接恢复 `gz` 命令, 无需 sudo:
+mkdir -p "$HOME/.local/bin"
+ln -sf /usr/bin/gz-classic "$HOME/.local/bin/gz"
 echo "完成! 验证: gz sim --version (应显示 Gazebo Sim 8.x)"
 echo "启动 XTDrone2 平台: bash scripts/run_simulation.sh xtd2"
 echo "或 PX4 官方 x500:   cd PX4-Autopilot && make px4_sitl gz_x500"
+echo "[可选清理] 若想恢复系统级 /usr/bin/gz: sudo dpkg-divert --remove --rename /usr/bin/gz"

@@ -48,12 +48,21 @@ class OffboardDemo(Node):
             depth=5,
         )
 
+        # 发布端用 BEST_EFFORT: PX4 uXRCE 话题本身是 best-effort 语义;
+        # 默认 RELIABLE 在 FastDDS SHM 缓冲满时可能阻塞死锁 (实测踩坑)
+        pub_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+        )
+
         self.pub_mode = self.create_publisher(
-            OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
+            OffboardControlMode, '/fmu/in/offboard_control_mode', pub_qos)
         self.pub_sp = self.create_publisher(
-            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
+            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', pub_qos)
         self.pub_cmd = self.create_publisher(
-            VehicleCommand, '/fmu/in/vehicle_command', 10)
+            VehicleCommand, '/fmu/in/vehicle_command', pub_qos)
 
         self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.cb_status, qos)
@@ -177,10 +186,11 @@ class OffboardDemo(Node):
                 self.get_logger().info('画圆完成, 开始降落')
 
         elif self.state == 'LAND':
-            if self.local_pos is not None and self.local_pos.z_valid:
-                if self.local_pos.z > -0.25 and not armed:
-                    self.state = 'DONE'
-                    self.get_logger().info('已降落并上锁, 演示完成 ✔')
+            # 以上锁判定降落完成 (不同机型出生点高度偏移不同, 地面 z 不一定≈0,
+            # 例如 gz_x500 出生点抬高后地面 z≈-0.85)
+            if not armed:
+                self.state = 'DONE'
+                self.get_logger().info('已降落并上锁, 演示完成 ✔')
 
         elif self.state == 'DONE':
             pass  # 保持节点运行, 可继续观察话题
