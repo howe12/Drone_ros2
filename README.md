@@ -1,7 +1,26 @@
 # Drone_ros2 — 仿真无人机开发项目
 
 基于 **PX4 v1.15.4 + ROS2 Humble + Gazebo** 的无人机仿真开发工作区。
-环境: Ubuntu 22.04 / ROS2 Humble / 8 核 / X11 桌面 (:0)。
+
+## 设备与环境
+
+开发机配置（2026-11-25 实测验证）:
+
+| 项目 | 配置 |
+|---|---|
+| CPU | Intel Core i7-9700F @ 3.00GHz（8 核 8 线程） |
+| 内存 | 40 GB |
+| GPU | NVIDIA GeForce RTX 2070 SUPER 8GB（驱动 580.126.09 / CUDA 13.0） |
+| 磁盘 | 503 GB（工作区位于 `/develop`，剩余约 190 GB） |
+| 系统 | Ubuntu 22.04.4 LTS（内核 5.19.0-38-generic，X11 桌面 `:0`） |
+| ROS2 | Humble Hawksbill |
+| 仿真器 | Gazebo Classic 11.10.2（另装有 Ignition Fortress；Harmonic 可选装，见下文） |
+| 工具链 | CMake 3.22.1 / GCC 11.4.0 / Ninja 1.13.0 / Python 3.10 |
+| 飞控 | PX4 v1.15.4 SITL（软件在环仿真） |
+
+> 注: 编译使用 PATH 中的 Python 3.10 环境（本机为 miniconda，依赖用 pip 安装即可）；
+> 编译 Micro-XRCE-DDS-Agent 时需避免 conda 头文件污染系统 spdlog/fmt，
+> `scripts/setup_workspace.sh` 已内置干净 PATH 处理。
 
 ## 仓库内容
 
@@ -84,7 +103,20 @@ INIT → 请求 Offboard+解锁 → TAKEOFF → CIRCLE → LAND → DONE。
 
 完整链路实测通过: `Gazebo Classic ↔ PX4 SITL ↔ MicroXRCEAgent ↔ drone_sim`
 - 起飞至 5 m（实测 z=-4.55 m 爬升中）→ 半径 3 m 画圆 25 s（实测轨迹半径 3.08 m）→ 降落并上锁 ✔
-- 截图见 `screenshots/`（01 起飞 / 02 画圆 / 03 降落）
+
+### 运行截图
+
+**① 起飞爬升**（遥测 z = -4.55 m，NED 坐标即高度 4.55 m）:
+
+![起飞爬升](screenshots/01_takeoff.png)
+
+**② 半径 3 m 画圆轨迹**（遥测 x=1.96, y=2.38 → 实测半径 3.08 m）:
+
+![画圆飞行](screenshots/02_circle.png)
+
+**③ 降落完成并自动上锁**（节点日志: `已降落并上锁, 演示完成 ✔`）:
+
+![降落完成](screenshots/03_landed.png)
 
 ### 本地适配修改（无 sudo 环境）
 1. `PX4-Autopilot/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake`:
