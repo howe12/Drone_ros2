@@ -1,0 +1,14 @@
+diff --git a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+index ca1c8d1..5254bea 100644
+--- a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
++++ b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+@@ -19,7 +19,8 @@ from launch_ros.actions import Node
+ from launch_ros.substitutions import FindPackageShare
+ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+ from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from ros_gz_bridge.actions import RosGzBridge
++# 本地适配: 移除未使用的 RosGzBridge 导入 (Humble 二进制 ros_gz_bridge 无 Python 模块,
++# 实际桥接由 bridge_launch 节点走 yaml + ros_gz_bridge.launch.py, 见 patches/0004)
+ 
+ 
+ 

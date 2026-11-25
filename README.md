@@ -123,8 +123,8 @@ bash scripts/run_simulation.sh xtd2 [模型]      # Gazebo Harmonic + XTDrone2 (
 | XTDrone2 全部 7 包在 Humble 编译 | ✔ 已验证（共 11 包通过） |
 | px4_msgs 重复冲突 | ✔ 已用 COLCON_IGNORE 处理 |
 | px4_dir / model_name 参数化 | ✔ 补丁 0003 |
-| Gazebo Harmonic 运行时 | ⏳ 需 sudo 执行 `scripts/install_gz_harmonic.sh`（教程推荐 24.04+Jazzy+Harmonic，本机 22.04+Humble 代码层已验证兼容，仿真器需 Harmonic） |
-| ros_gz_bridge Python actions | ⏳ Humble 二进制包无此模块（bridge_launch 节点会报错，不影响飞行主链路）；装 Harmonic 后需从源码编译 ros_gz（humble 分支, `GZ_VERSION=harmonic`）或改用 `parameter_bridge` + 其自带 yaml |
+| Gazebo Harmonic 运行时 | ⏳ 需 sudo 执行 `scripts/install_gz_harmonic.sh`（已内置 /usr/bin/gz 冲突 diversion 保护；教程推荐 24.04+Jazzy+Harmonic，本机 22.04+Humble 代码层已验证兼容） |
+| ros_gz_bridge 适配 | ✔ 死导入已移除（补丁 0004，实际桥接走 yaml + ros_gz_bridge.launch.py，Humble 支持）；⏳ Harmonic 话题桥接需从源码编译 ros_gz（humble 分支, `GZ_VERSION=harmonic`，二进制包只支持 Fortress），源码放 `third_party/ros_gz` |
 
 ## 开发入口 (drone_sim)
 
@@ -169,6 +169,15 @@ INIT → 请求 Offboard+解锁 → TAKEOFF → CIRCLE → LAND → DONE。
 3. `platforms/nuttx/NuttX/nuttx/.git` gitlink 已移除（SITL 不需要 NuttX；模块数据仍在 `.git/modules`，可恢复）
 4. Agent 用 main 分支（v2.4.2 依赖的 FastDDS 2.12.x 分支已被上游删除）；安装于 `~/.local`，运行需 `LD_LIBRARY_PATH=$HOME/.local/lib`
 5. 编译用 ninja 直调（make jobserver 在本环境报 fd 错误）：`ninja -C build/px4_sitl_default -j8`
+
+## 运行安全注意（磁盘/日志，重要教训）
+
+- **PX4 SITL 无 TTY 时交互控制台会 `pxh>` 重绘死循环**，曾把根分区 `/tmp` 写满 62G。
+  `run_simulation.sh` 已设 `NO_PXH=1`（→ `px4 -d`）禁用交互控制台，Gazebo GUI 不受影响。
+- 所有运行日志写 `logs/`（位于 `/develop` 大盘），经 `scripts/capped_log.sh` 限制大小
+  （20–50MB 上限，达到后停止写盘但进程继续运行）。**不要把仿真日志重定向到根分区 `/tmp`**。
+- 无人值守运行可加 `HEADLESS=1`（不启动 Gazebo GUI）。
+- XTDrone2 的 `px4_launch` 上游已用 `-d` 运行 px4，无此问题。
 
 ## 参考
 

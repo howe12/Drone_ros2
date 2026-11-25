@@ -43,6 +43,8 @@ mkdir -p third_party/XTDrone2/xtd2_third_party_pkgs/px4_msgs
 touch third_party/XTDrone2/xtd2_third_party_pkgs/px4_msgs/COLCON_IGNORE
 # 本地适配: 暴露 px4_dir / model_name launch 参数 (指向本工作区的 PX4)
 git -C third_party/XTDrone2 apply "$ROOT/patches/0003-xtd2-px4-dir-and-model-args.patch" 2>/dev/null || echo "  补丁3已应用, 跳过"
+# 本地适配: 移除未使用的 RosGzBridge 导入 (Humble 二进制包无该 Python 模块, 会炸 launch 加载)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0004-xtd2-remove-unused-rosgzbridge-import.patch" 2>/dev/null || echo "  补丁4已应用, 跳过"
 
 echo "[3/6] 应用本地适配补丁 (无 sudo 环境)..."
 git -C PX4-Autopilot apply "$ROOT/patches/0001-px4-sitl-gazebo-classic-gstreamer-off.patch" 2>/dev/null || echo "  补丁1已应用, 跳过"

@@ -21,30 +21,34 @@ source "$ROOT/ros2_ws/install/setup.bash"
 case "$PLATFORM" in
 classic)
     MODEL="${MODEL:-iris}"
-    echo "[classic] 机型: $MODEL"
+    # ★ 磁盘安全: 禁用 px4 交互控制台 (px4 -d)。无 TTY 时 pxh> 会重绘死循环,
+    #   曾把根分区 /tmp 写满 62G。NO_PXH 由 sitl_run.sh 转为 -d 参数, GUI 不受影响。
+    export NO_PXH=1
+    # ★ 日志全部写 /develop 大盘的 logs/, 且带大小上限
+    LOGDIR="$ROOT/logs"; mkdir -p "$LOGDIR"
+    CAP="$ROOT/scripts/capped_log.sh"
+    echo "[classic] 机型: $MODEL  日志(带上限): $LOGDIR/"
     echo "[1/3] 启动 MicroXRCEAgent (UDP 8888)..."
-    MicroXRCEAgent udp4 -p 8888 &
-    AGENT_PID=$!
+    MicroXRCEAgent udp4 -p 8888 2>&1 | bash "$CAP" "$LOGDIR/xrce_agent.log" 20 &
     sleep 1
 
     echo "[2/3] 启动 PX4 SITL + Gazebo Classic (首次会自动编译)..."
     cd "$ROOT/PX4-Autopilot"
     # 用 cmake 直调 ninja, 绕开 make jobserver 在部分环境的 fd 错误
-    cmake --build build/px4_sitl_default --target "gazebo-classic_${MODEL}" &
-    PX4_PID=$!
+    cmake --build build/px4_sitl_default --target "gazebo-classic_${MODEL}" 2>&1 | bash "$CAP" "$LOGDIR/px4_sitl.log" 50 &
 
     echo "等待 PX4 就绪 (30s)..."
     sleep 30
 
     echo "[3/3] 启动 drone_sim offboard 演示 (起飞->画圆->降落)..."
-    ros2 launch drone_sim demo.launch.py &
-    DEMO_PID=$!
+    ros2 launch drone_sim demo.launch.py 2>&1 | bash "$CAP" "$LOGDIR/drone_demo.log" 20 &
 
     cleanup() {
-        kill "$DEMO_PID" "$AGENT_PID" 2>/dev/null || true
+        pkill -x MicroXRCEAgent 2>/dev/null || true
         pkill -f "px4_sitl_default/bin/px4" 2>/dev/null || true
         pkill -x gzserver 2>/dev/null || true
         pkill -x gzclient 2>/dev/null || true
+        pkill -f "ros2 launch drone_sim" 2>/dev/null || true
     }
     trap cleanup EXIT
     wait
