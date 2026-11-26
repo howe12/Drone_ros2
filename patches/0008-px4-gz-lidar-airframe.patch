@@ -58,15 +58,32 @@ index 0000000..5ce881a
 +param set-default SIM_GZ_EC_MAX4 1000
 +
 +param set-default MPC_THR_HOVER 0.60
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/4013_gz_x500_mono_cam_down b/ROMFS/px4fmu_common/init.d-posix/airframes/4013_gz_x500_mono_cam_down
+new file mode 100644
+index 0000000..e07d115
+--- /dev/null
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/4013_gz_x500_mono_cam_down
+@@ -0,0 +1,10 @@
++#!/bin/sh
++#
++# @name Gazebo x500 mono cam down (local E8)
++#
++# @type Quadrotor
++#
++
++PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_mono_cam_down}
++
++. ${R}etc/init.d-posix/airframes/4001_gz_x500
 diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
-index 9277ad3..f255af9 100644
+index 9277ad3..048f996 100644
 --- a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
 +++ b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
-@@ -83,6 +83,7 @@ px4_add_romfs_files(
+@@ -83,6 +83,8 @@ px4_add_romfs_files(
  	4009_gz_r1_rover
  	4010_gz_x500_mono_cam
  	4011_gz_lawnmower
 +	4012_gz_x500_lidar_2d
++	4013_gz_x500_mono_cam_down
  
  	6011_gazebo-classic_typhoon_h480
  	6011_gazebo-classic_typhoon_h480.post

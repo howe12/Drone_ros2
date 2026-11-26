@@ -74,9 +74,14 @@
 - 对应模块: 4；难度 ★★★★；链路: 深度图→局部栅格→规划→setpoint
 - 依赖: E1
 
-**E8. 视觉检测与精准降落** — ultralytics YOLO 节点 + ArUco 降落
-- 对应模块: 5；难度 ★★★；aruco.sdf 世界自带靶标，闭环现成
-- 依赖: E1
+**E8. 视觉检测与精准降落** ✅ **已完成 (2026-11-26, Issue #8)**
+- ArUco 精准降落世界系真值验证: **落点距靶标中心 0.052m** (0.5m 靶标)
+- 关键发现: EKF 局部原点会重置 (xy_reset_counter=3), 落点精度必须用世界系位姿验证;
+  伺服以图像光心为基准 (原点无关) + 偏航旋转 + 高度自适应增益 + 统计居中判定
+- 新增机架 4013_gz_x500_mono_cam_down (补丁0008 含 4012/4013); 靶标纹理替换为标准 ArUco ID42
+- YOLO: yolov8n 权重入包, 样本图实测 bus:0.87/person×3; ROS 节点需 conda python+LD_PRELOAD
+  (scripts/run_yolo.sh 包装)
+- 截图 16/17/18; 用法: ros2 run drone_sim aruco_precision_landing
 
 ### P2 — 进阶方向（按需）
 

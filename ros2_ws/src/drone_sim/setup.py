@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'models'), glob('models/*.pt')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -28,6 +29,8 @@ setup(
             'waypoint_mission = drone_sim.waypoint_mission:main',
             'formation_follower = drone_sim.formation_follower:main',
             'odom_to_tf = drone_sim.odom_to_tf:main',
+            'aruco_precision_landing = drone_sim.aruco_precision_landing:main',
+            'yolo_detector = drone_sim.yolo_detector:main',
         ],
     },
 )

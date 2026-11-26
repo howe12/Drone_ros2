@@ -1,0 +1,12 @@
+diff --git a/xtd2_launch/xtd2_launch/utils/px4_launch.py b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+index 743e71a..4bf1d0e 100644
+--- a/xtd2_launch/xtd2_launch/utils/px4_launch.py
++++ b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+@@ -40,6 +40,7 @@ def main():
+         "gz_advanced_plane": 4008, "gz_r1_rover": 4009, "gz_x500_mono_cam": 4010,
+         "gz_lawnmower": 4011, "gz_omnicopter": 8011,
+         "gz_x500_lidar_2d": 4012,  # 本地新增机架 (E1, PX4 ROMFS 4012)
++        "gz_x500_mono_cam_down": 4013,  # 本地新增机架 (E8 下视相机精准降落)
+     }
+     sys_autostart = autostart_map[args.model]
+ 

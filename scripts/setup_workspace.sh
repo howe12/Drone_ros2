@@ -59,6 +59,8 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0010-xtd2-per-instance-workdir.
 git -C third_party/XTDrone2 apply "$ROOT/patches/0011-xtd2-clock-bridge.patch" 2>/dev/null || echo "  补丁11已应用, 跳过"
 # E4: x500_base 里程计发布插件 (SLAM TF 链路必需)
 git -C third_party/XTDrone2 apply "$ROOT/patches/0012-xtd2-x500-odometry-plugin.patch" 2>/dev/null || echo "  补丁12已应用, 跳过"
+# E8: 下视相机机架 autostart + ArUco 标准靶标纹理
+git -C third_party/XTDrone2 apply "$ROOT/patches/0013-xtd2-downcam-autostart.patch" 2>/dev/null || echo "  补丁13已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then
@@ -69,6 +71,18 @@ fi
 for m in cafe cafe_table cinder_block_wide coke_can grey_tote; do
     [ -d "third_party/XTDrone2/xtd2_gz_sim/models/$m" ] || cp -r "third_party/gazebo_models/$m" "third_party/XTDrone2/xtd2_gz_sim/models/$m"
 done
+# E8: 上游 arucotag 纹理为非标准图案(无法检测), 替换为标准 ArUco DICT_4X4_50 ID42
+python3 - <<'PYEOF'
+import cv2, numpy as np, os
+p = 'third_party/XTDrone2/xtd2_gz_sim/models/arucotag/arucotag.png'
+if os.path.exists(p) and not os.path.exists(p.replace('.png', '_original.png')):
+    import shutil; shutil.copy(p, p.replace('.png', '_original.png'))
+d = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+m = cv2.aruco.generateImageMarker(d, 42, 500, borderBits=1)
+img = np.full((700, 700), 255, dtype=np.uint8); img[100:600, 100:600] = m
+cv2.imwrite(p, img)
+print('arucotag texture: DICT_4X4_50 ID42')
+PYEOF
 
 echo "[3/6] 应用本地适配补丁 (无 sudo 环境)..."
 git -C PX4-Autopilot apply "$ROOT/patches/0001-px4-sitl-gazebo-classic-gstreamer-off.patch" 2>/dev/null || echo "  补丁1已应用, 跳过"
