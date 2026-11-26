@@ -66,6 +66,17 @@ xtd2)
     echo "[xtd2] 模型: $MODEL  PX4: $ROOT/PX4-Autopilot"
     echo "XTDrone2 的 launch 会自行启动 MicroXRCEAgent / gz sim / PX4 SITL / 通信节点"
     LOGDIR="$ROOT/logs"; mkdir -p "$LOGDIR"
+    # 关闭 Gazebo 窗口会触发 on_exit_shutdown 整栈停机, 但上游 shell=True 启动的
+    # 孙进程(Agent/PX4/通信节点)会变孤儿残留 —— 这里兜底清理
+    cleanup_xtd2() {
+        pkill -x MicroXRCEAgent 2>/dev/null || true
+        pkill -f "px4_sitl_default/bin/px4" 2>/dev/null || true
+        pkill -f "multirotor_communication" 2>/dev/null || true
+        pkill -f "parameter_bridge" 2>/dev/null || true
+        pkill -f "gz sim" 2>/dev/null || true
+        echo "[xtd2] 已清理全部仿真进程"
+    }
+    trap cleanup_xtd2 EXIT
     # 日志写 /develop 大盘并限幅 (磁盘安全, 见 README)
     ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
         px4_dir:="$ROOT/PX4-Autopilot" \
