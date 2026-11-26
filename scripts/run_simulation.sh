@@ -64,6 +64,9 @@ xtd2)
         exit 1
     fi
     echo "[xtd2] 模型: $MODEL  PX4: $ROOT/PX4-Autopilot"
+    # 命名空间与 PX4 实际模型名一致: {model去掉gz_前缀}_{id} (如 x500_mono_cam_0)
+    NS="${MODEL#gz_}_0"
+    echo "[xtd2] 命名空间: $NS"
     echo "XTDrone2 的 launch 会自行启动 MicroXRCEAgent / gz sim / PX4 SITL / 通信节点"
     LOGDIR="$ROOT/logs"; mkdir -p "$LOGDIR"
     # 关闭 Gazebo 窗口会触发 on_exit_shutdown 整栈停机, 但上游 shell=True 启动的
@@ -80,7 +83,8 @@ xtd2)
     # 日志写 /develop 大盘并限幅 (磁盘安全, 见 README)
     ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
         px4_dir:="$ROOT/PX4-Autopilot" \
-        model_name:="$MODEL" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
+        model_name:="$MODEL" \
+        namespace:="$NS" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
     ;;
 
 *)

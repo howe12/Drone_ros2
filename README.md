@@ -174,7 +174,7 @@ bash scripts/run_simulation.sh xtd2 [模型]      # Gazebo Harmonic + XTDrone2 (
 | px4_dir / model_name 参数化 | ✔ 补丁 0003 |
 | Gazebo Harmonic | ✔ 已安装 8.15.0（diversion 会把 gz-tools2 的 gz 也改道为 /usr/bin/gz-classic，脚本已自动建 ~/.local/bin/gz 符号链接） |
 | PX4 gz_bridge 模块 | ✔ 装 Harmonic 后已重配置重编（cmake -B + ninja） |
-| ros_gz 源码编译 (GZ_VERSION=harmonic) | ✔ third_party/ros_gz (humble 分支)，桥接 pose/odometry 实测可用 |
+| ros_gz 源码编译 (GZ_VERSION=harmonic) | ✔ third_party/ros_gz (humble 分支)，桥接 pose/odometry + **相机/IMU/深度/点云/2D激光全实测** (E1, 补丁0007/0008) |
 | ros_gz_bridge.launch.py 缺失 | ✔ 补丁 0006 改调 parameter_bridge（humble 支持新 yaml schema） |
 | px4-offboard 误注册 visualize.rviz 包标记 | ✔ 补丁 0005（会炸 ros_gz humble 的 gz_sim.launch 遍历） |
 | **xtd2 平台飞行验证** | ✔ gz_x500 起飞 5m → 半径 3m 画圆 → 降落上锁（截图 04–06） |

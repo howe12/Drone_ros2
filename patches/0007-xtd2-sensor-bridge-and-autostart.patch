@@ -1,0 +1,76 @@
+diff --git a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+index 483bc63..faa4ab4 100644
+--- a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
++++ b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+@@ -11,3 +11,51 @@
+   gz_type_name: "gz.msgs.Odometry"
+   lazy: true
+   direction: GZ_TO_ROS
++
++# ===== E1 传感器桥接 (本地扩展, 补丁0007) =====
++# 话题名以 `gz topic -l` 实测为准:
++# 相机 (x500_mono_cam / x500_depth 的 RGB), 模型未加命名空间前缀, 为全局话题
++- ros_topic_name: "${ros_ns}/camera/image_raw"
++  gz_topic_name: "/camera"
++  ros_type_name: "sensor_msgs/msg/Image"
++  gz_type_name: "gz.msgs.Image"
++  lazy: true
++  direction: GZ_TO_ROS
++
++- ros_topic_name: "${ros_ns}/camera/camera_info"
++  gz_topic_name: "/camera_info"
++  ros_type_name: "sensor_msgs/msg/CameraInfo"
++  gz_type_name: "gz.msgs.CameraInfo"
++  lazy: true
++  direction: GZ_TO_ROS
++
++# IMU (x500_base 自带, gz 发布在完整传感器路径; 世界名默认 aruco)
++- ros_topic_name: "${ros_ns}/imu"
++  gz_topic_name: "/world/aruco/model/${gz_ns}/link/base_link/sensor/imu_sensor/imu"
++  ros_type_name: "sensor_msgs/msg/Imu"
++  gz_type_name: "gz.msgs.IMU"
++  lazy: true
++  direction: GZ_TO_ROS
++
++# 深度相机 (x500_depth / OakD-Lite)
++- ros_topic_name: "${ros_ns}/depth_camera/image_raw"
++  gz_topic_name: "/depth_camera"
++  ros_type_name: "sensor_msgs/msg/Image"
++  gz_type_name: "gz.msgs.Image"
++  lazy: true
++  direction: GZ_TO_ROS
++
++- ros_topic_name: "${ros_ns}/depth_camera/points"
++  gz_topic_name: "/depth_camera/points"
++  ros_type_name: "sensor_msgs/msg/PointCloud2"
++  gz_type_name: "gz.msgs.PointCloudPacked"
++  lazy: true
++  direction: GZ_TO_ROS
++
++# 2D 激光 (x500_lidar_2d; 话题名待该机型实测确认)
++- ros_topic_name: "${ros_ns}/scan"
++  gz_topic_name: "/scan"
++  ros_type_name: "sensor_msgs/msg/LaserScan"
++  gz_type_name: "gz.msgs.LaserScan"
++  lazy: true
++  direction: GZ_TO_ROS
+diff --git a/xtd2_launch/xtd2_launch/utils/px4_launch.py b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+index aea7c15..61e69b9 100644
+--- a/xtd2_launch/xtd2_launch/utils/px4_launch.py
++++ b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+@@ -33,7 +33,14 @@ def main():
+ 
+     args, unknown = parser.parse_known_args()
+ 
+-    autostart_map = {"gz_x500": 4001, "gz_x500_depth":4002}
++    # 本地扩展(补丁0007): 覆盖 PX4 v1.15 全部 gz 机架 (ROMFS airframes 4001-4011/8011)
++    autostart_map = {
++        "gz_x500": 4001, "gz_x500_depth": 4002, "gz_rc_cessna": 4003,
++        "gz_standard_vtol": 4004, "gz_x500_vision": 4005, "gz_px4vision": 4006,
++        "gz_advanced_plane": 4008, "gz_r1_rover": 4009, "gz_x500_mono_cam": 4010,
++        "gz_lawnmower": 4011, "gz_omnicopter": 8011,
++        "gz_x500_lidar_2d": 4012,  # 本地新增机架 (E1, PX4 ROMFS 4012)
++    }
+     sys_autostart = autostart_map[args.model]
+ 
+     mav_sys_id = args.id + 1

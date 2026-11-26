@@ -1,0 +1,96 @@
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_lidar_2d b/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_lidar_2d
+new file mode 100644
+index 0000000..5ce881a
+--- /dev/null
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_lidar_2d
+@@ -0,0 +1,54 @@
++#!/bin/sh
++#
++# @name Gazebo x500 lidar 2d (local E1)
++#
++# @type Quadrotor
++#
++
++. ${R}etc/init.d/rc.mc_defaults
++
++PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
++PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
++PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_lidar_2d}
++
++param set-default SIM_GZ_EN 1
++
++param set-default SENS_EN_GPSSIM 1
++param set-default SENS_EN_BAROSIM 0
++param set-default SENS_EN_MAGSIM 1
++
++param set-default CA_AIRFRAME 0
++param set-default CA_ROTOR_COUNT 4
++
++param set-default CA_ROTOR0_PX 0.13
++param set-default CA_ROTOR0_PY 0.22
++param set-default CA_ROTOR0_KM  0.05
++
++param set-default CA_ROTOR1_PX -0.13
++param set-default CA_ROTOR1_PY -0.20
++param set-default CA_ROTOR1_KM  0.05
++
++param set-default CA_ROTOR2_PX 0.13
++param set-default CA_ROTOR2_PY -0.22
++param set-default CA_ROTOR2_KM -0.05
++
++param set-default CA_ROTOR3_PX -0.13
++param set-default CA_ROTOR3_PY 0.20
++param set-default CA_ROTOR3_KM -0.05
++
++param set-default SIM_GZ_EC_FUNC1 101
++param set-default SIM_GZ_EC_FUNC2 102
++param set-default SIM_GZ_EC_FUNC3 103
++param set-default SIM_GZ_EC_FUNC4 104
++
++param set-default SIM_GZ_EC_MIN1 150
++param set-default SIM_GZ_EC_MIN2 150
++param set-default SIM_GZ_EC_MIN3 150
++param set-default SIM_GZ_EC_MIN4 150
++
++param set-default SIM_GZ_EC_MAX1 1000
++param set-default SIM_GZ_EC_MAX2 1000
++param set-default SIM_GZ_EC_MAX3 1000
++param set-default SIM_GZ_EC_MAX4 1000
++
++param set-default MPC_THR_HOVER 0.60
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+index 9277ad3..f255af9 100644
+--- a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+@@ -83,6 +83,7 @@ px4_add_romfs_files(
+ 	4009_gz_r1_rover
+ 	4010_gz_x500_mono_cam
+ 	4011_gz_lawnmower
++	4012_gz_x500_lidar_2d
+ 
+ 	6011_gazebo-classic_typhoon_h480
+ 	6011_gazebo-classic_typhoon_h480.post
+diff --git a/Tools/simulation/gazebo-classic/sitl_gazebo-classic b/Tools/simulation/gazebo-classic/sitl_gazebo-classic
+--- a/Tools/simulation/gazebo-classic/sitl_gazebo-classic
++++ b/Tools/simulation/gazebo-classic/sitl_gazebo-classic
+@@ -1 +1 @@
+-Subproject commit da7206e057703cc645770f02437013358b71e1c0
++Subproject commit da7206e057703cc645770f02437013358b71e1c0-dirty
+diff --git a/platforms/nuttx/NuttX/apps b/platforms/nuttx/NuttX/apps
+--- a/platforms/nuttx/NuttX/apps
++++ b/platforms/nuttx/NuttX/apps
+@@ -1 +1 @@
+-Subproject commit e37940d8535f603a16b8f6f21c21edaf584218aa
++Subproject commit e37940d8535f603a16b8f6f21c21edaf584218aa-dirty
+diff --git a/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake b/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
+index b67fe54..8b57bf7 100644
+--- a/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
++++ b/src/modules/simulation/simulator_mavlink/sitl_targets_gazebo-classic.cmake
+@@ -50,6 +50,7 @@ if(gazebo_FOUND)
+ 			-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+ 			-DSEND_ODOMETRY_DATA=ON
+ 			-DGENERATE_ROS_MODELS=ON
++		-DBUILD_GSTREAMER_PLUGIN=OFF # 本机无 GStreamer 开发包且无 sudo, iris 不需要该相机插件 (本地修改)
+ 		BINARY_DIR ${PX4_BINARY_DIR}/build_gazebo-classic
+ 		INSTALL_COMMAND ""
+ 		DEPENDS git_sitl_gazebo-classic

@@ -12,7 +12,7 @@
 | Offboard 位置控制（起飞/画圆/降落状态机） | ✅ 参数化 | drone_sim/offboard_demo.py |
 | 键盘速度手飞 | ✅ 步进调参 | xtd2_control |
 | ROS2↔PX4 DDS 链路 | ✅ | MicroXRCEAgent + px4_msgs |
-| 传感器桥接 | ⚠️ 仅 pose/odometry | ros_gz_bridge（相机/IMU/激光未桥接） |
+| 传感器桥接 | ✅ 相机/IMU/深度/点云/激光全实测 (E1 完成) | ros_gz_bridge + 补丁0007/0008 |
 | 多机命名空间机制 | ⚠️ 有基础无演示 | PX4_UXRCE_DDS_NS / x500_0 |
 | 传感器机型模型库 | ✅ 模型齐全未启用 | x500_depth/mono_cam/lidar_2d/gimbal；iris_depth_camera/foggy_lidar 等 |
 | 工程化（一键复现/补丁/日志安全/文档） | ✅ | setup_workspace.sh + patches 0001-0006 |
@@ -35,13 +35,11 @@
 
 ### P0 — 打通感知与任务基础（1–2 周量级）
 
-**E1. 传感器话题桥接工程** `drone_sim` 扩展
+**E1. 传感器话题桥接工程** `drone_sim` 扩展 ✅ **已完成 (2026-11-26, Issue #1)**
 - 对应模块: 2/3/4/5 的前置条件
-- 基础: ros_gz_bridge 已跑通(pose/odometry)，模型库齐全
-- 内容: 桥接 yaml 增加 camera/image、camera_info、imu、depth/points、lidar scan；
-  启用 x500_mono_cam / x500_depth / x500_lidar_2d 机型；ros_gz_image 解压；
-  验证 `ros2 topic hz /x500_0/camera/image_raw`
-- 难度: ★★（配置为主）
+- 成果: 相机 23.6Hz(1280x960) / IMU 253Hz / 2D激光 30.4Hz(270°/30m) / 深度图 25.6Hz / 点云 28.1Hz
+- 新增 PX4 机架 4012_gz_x500_lidar_2d；命名空间自动推导；补丁 0007/0008
+- 启动: `bash scripts/run_simulation.sh xtd2 gz_x500_mono_cam|gz_x500_depth|gz_x500_lidar_2d`
 
 **E2. 航点任务与可视化** `drone_sim/waypoint_mission`
 - 对应模块: 1/7
