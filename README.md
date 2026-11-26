@@ -79,6 +79,41 @@ ros2 launch drone_sim demo.launch.py                 # 终端 3
 # 也可以跑官方示例: ros2 launch px4_offboard offboard_control.launch.py
 ```
 
+## 手动控制（xtd2 平台键盘手飞）
+
+先 source 工作空间（顺序: humble 底座 → 本项目 overlay，`cd` 到哪不重要，source 才重要）:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ros2_ws/install/setup.bash
+```
+
+启动键盘节点（**推荐带调参**，见下方说明）:
+
+```bash
+ros2 run xtd2_control multirotor_keyboard_control --model gz_x500 --id 0 --namespace x500_0 \
+  --ros-args -p linear_velocity_step:=0.5 -p angular_velocity_step:=0.2 \
+             -p max_linear_velocity:=5.0 -p max_angular_velocity:=1.5
+```
+
+**起飞三步曲（顺序重要）**: 先按 `b`（开启 OFFBOARD，否则速度指令全被丢弃）→ `t`（解锁）→ `v`（起飞）。
+
+| 按键 | 作用 | 按键 | 作用 |
+|---|---|---|---|
+| `b` | 开启 Offboard（必须先按） | `w`/`x` | 前进/后退速度 +/− |
+| `t` | 解锁 ARM | `a`/`d` | 左移/右移速度 +/− |
+| `v` | 起飞 TAKEOFF | `i`/`,` | 上升/下降速度 +/− |
+| `n` | 降落 LAND | `j`/`l` | 左旋/右旋速度 +/− |
+| `y` | 上锁 DISARM | `s` | 悬停（速度清零） |
+| `r` | 返航 RTL | `Ctrl-C` | 退出 |
+
+**手感说明**: 速度是**累加式**的，每按一次加一个步进。上游默认 `linear_velocity_step=0.01`
+（按 100 次才到 1 m/s，几乎感觉不动）——所以上面推荐 0.5 m/s 步进、限速 5 m/s。
+按 `s` 随时清零悬停。若解锁被拒（Preflight 警告），等 10–20 s EKF 收敛后重试 `t`。
+
+自动演示（起飞→画圆→降落）见「快速开始」；xtd2 平台下 `drone_sim` 需把 5 个 `/fmu/...`
+话题重映射到 `/x500_0/fmu/...`（完整命令见 `docs/OPERATIONS.md`）。
+
 ## 仿真器说明
 
 - 本机已装 **Gazebo Classic 11** (含开发头文件) 与 Ignition Fortress。
