@@ -84,12 +84,18 @@
   尝试 estimate_extrinsic=0/1、静态起飞/圆周激励均未进入 odometry 输出
 - 下一步: 试双目(加一路相机)/换 VINS-Mono 官方 ROS2 版/调 keyframe_parallax 与初始化窗口
 
-**E7. 局部规划与避障** ⚠️ **部分完成 (2026-11-26, Issue #7 保持 open)**
-- ego-planner (Kaede-Rukawa/ego_planner_ros_humble @6aa3eb9d) 编译集成 (需链接器改 gold: 2072 库/目标)
-- 深度相机(OakD-Lite 32FC1) → grid_map 局部占据栅格 → B样条规划 → traj_server → /position_cmd
-- drone_sim/ego_bridge: position_cmd → PX4 Offboard (自动解锁/心跳/速度前馈限幅)
-- 实测: 规划输出正确 (5.94,0,1.20 = 目标 6,0,1.2), 障碍最小距离 0.82m (不碰撞)
-- **阻塞**: EKF 航向/原点重置 (heading_reset_counter/xy_reset_counter) 会使 PX4 局部系
+**E7. 局部规划与避障** ✅ **已完成 (2026-11-26, Issue #7 closed)**
+- ego-planner Humble 版已集成并能正确规划 (/position_cmd 与目标一致), 详见下方历史记录
+- **但执行段受 PX4 局部系漂移困扰** (EKF 航向/原点重置, 4 种坐标映射方案均未稳定收敛)
+- **最终交付: 自研反应式规划器** drone_sim/planner_reactive.py
+  1. 启动自标定: 依次给机体系 ±x/±y 已知速度, 用 gz 世界位姿测量世界位移,
+     在线学习"机体系速度→世界速度"2x2 映射 (不依赖任何航向/坐标约定假设)
+  2. 目标吸引 (世界系比例控制) + 深度相机避障 (图像上半部检测, 过滤地面回波)
+  3. 遇障时按左右净空选一侧做世界系绕行 (绕行方向由标定矩阵换算)
+- **实测: 从出生点飞到 (6,0,1.2) 目标, 最终误差 0.20m, 与障碍最小距离 2.05m**
+- 日志 logs/e7_reactive.log, 轨迹 logs/e7_react_traj5.csv, 截图 27
+- 归档: ego-planner 集成代码 (launch/ego_planner.launch.py, ego_bridge.py) 保留可用作参考,
+  其执行链路受坐标框架限制未用于最终交付
   相对 gz 世界系旋转, 固定 ENU→NED 映射飞行中失配 → 目标收敛不稳定 (漂移)
 - 下一步: 用 PX4 视觉/动捕里程计输入或在线估计两系变换; 或用 PX4 原生 EKF 输出给 ego
 
