@@ -35,6 +35,7 @@ setup(
             'ego_bridge = drone_sim.ego_bridge:main',
             'vio_evaluator = drone_sim.vio_evaluator:main',
             'bt_mission = drone_sim.bt_mission:main',
+            'vtol_demo = drone_sim.vtol_demo:main',
         ],
     },
 )

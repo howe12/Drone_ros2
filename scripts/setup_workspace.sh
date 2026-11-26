@@ -146,6 +146,14 @@ fi
 # 系统 Ceres 无 CUDA 后端 → 补丁 0017 固定 DENSE_SCHUR
 git -C third_party/vins_fusion_ros2 apply "$ROOT/patches/0017-vins-ceres-cpu-only.patch" 2>/dev/null || echo "  补丁17已应用, 跳过"
 
+echo "[6.48/6] px4-ros2-interface-lib (E11, 锁定 release/1.16 b87cc26)..."
+if [ ! -d third_party/px4_ros2_interface ]; then
+    git clone --depth 1 --branch release/1.16 https://github.com/Auterion/px4-ros2-interface-lib.git third_party/px4_ros2_interface \
+    || git clone --depth 1 --branch release/1.16 https://ghfast.top/https://github.com/Auterion/px4-ros2-interface-lib.git third_party/px4_ros2_interface
+fi
+# px4_msgs 1.15 缺 lat_lon_valid/alt_valid -> 补丁 0018
+git -C third_party/px4_ros2_interface apply "$ROOT/patches/0018-px4-ros2-iface-msgs115.patch" 2>/dev/null || echo "  补丁18已应用, 跳过"
+
 echo "[6.5/6] ros_gz 源码 (仅 xtd2 平台需要; 二进制包只支持 Fortress, Harmonic 需源码编译)..."
 if [ ! -d third_party/ros_gz ]; then
     git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git third_party/ros_gz \
@@ -166,7 +174,7 @@ fi
        --base-paths src ../third_party/XTDrone2 ../third_party/point_lio_ros2 \
          ../third_party/ego_planner_ros_humble/src/planner \
          ../third_party/ego_planner_ros_humble/src/uav_simulator/Utils \
-         ../third_party/vins_fusion_ros2 \
+         ../third_party/vins_fusion_ros2 ../third_party/px4_ros2_interface \
        --cmake-args -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=gold" )
 
 echo ""

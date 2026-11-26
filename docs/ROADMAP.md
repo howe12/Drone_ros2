@@ -113,7 +113,15 @@
 - 实测: 方形任务 4 航点全 SUCCESS, 起飞 3m→四边→自动降落 (logs/e10_bt_square.log, 截图 24)
 - 已知限制: 故障注入演示 (500m 不可达航点) 未稳定触发 FAILURE→应急分支,
   多实例并行会互相干扰; 后续需单实例隔离与更严格的不可达判据
-**E11. 固定翼/VTOL 控制** — px4-ros2-interface-lib（官方新接口，注册自定义模式）
+**E11. 固定翼/VTOL** ✅ **已完成 (2026-11-26, Issue #11)**
+- px4-ros2-interface-lib (Auterion, release/1.16 @b87cc26) 编译集成成功
+  - 补丁0018: px4_msgs 1.15 无 lat_lon_valid/alt_valid 字段的兼容处理
+  - **模式注册实测通过**: 'Go-to Example' (mode id 确认, RegisterExtComponentReply, arming check id=125)
+  - 示例 example_mode_goto_cpp / example_mode_fw_attitude_cpp 均编译
+- VTOL 过渡 demo (drone_sim/vtol_demo.py, standard_vtol 机架):
+  多旋翼垂直起飞 18m → POSCTL+DO_VTOL_TRANSITION(4) → **固定翼前飞** (空速 1.7→95.9/31.9 m/s)
+  → 30s 巡航 → DO_VTOL_TRANSITION(3) → 垂直降落, 全程自动
+- 日志 logs/e11_vtol.log, 截图 25; 关键: 必须先切 POSCTL 再发过渡命令, 否则 PX4 不执行
 **E12. sim2real** — 真机参数整定、安全框架、日志回放
 
 ## 四、建议路线

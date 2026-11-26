@@ -1,0 +1,14 @@
+diff --git a/px4_ros2_cpp/include/px4_ros2/odometry/global_position.hpp b/px4_ros2_cpp/include/px4_ros2/odometry/global_position.hpp
+index e6e8ccc..b3b4de6 100644
+--- a/px4_ros2_cpp/include/px4_ros2/odometry/global_position.hpp
++++ b/px4_ros2_cpp/include/px4_ros2/odometry/global_position.hpp
+@@ -29,7 +29,8 @@ public:
+    */
+   bool positionValid() const
+   {
+-    return lastValid() && last().lat_lon_valid && last().alt_valid;
++    // 本地补丁(E11): px4_msgs 1.15 无 lat_lon_valid/alt_valid 字段, 仅判据 lastValid
++    return lastValid();
+   }
+ 
+   /**
