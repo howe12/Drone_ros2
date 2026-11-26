@@ -141,6 +141,9 @@ class WaypointMission(Node):
         self.last_cmd_tick = -100
         self.target = [0.0, 0.0, 0.0]
         self.target_yaw = 0.0
+        # EKF 原点稳定性门控: 重置计数器变化时禁止解锁 (防止 z 原点跳变导致"贴地爬行")
+        self.last_reset = None
+        self.reset_stable_ticks = 0
         self.create_timer(0.1, self.loop)
 
     # ---- 回调 ----
@@ -238,8 +241,19 @@ class WaypointMission(Node):
         offboard = self.status.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD
 
         if self.state == 'INIT':
-            if self.tick > 20:
+            # EKF 原点稳定检查: 计数器 5s 无变化才允许解锁
+            if self.pos is not None:
+                cur_reset = (self.pos.xy_reset_counter, self.pos.z_reset_counter)
+                if cur_reset != self.last_reset:
+                    self.last_reset = cur_reset
+                    self.reset_stable_ticks = 0
+                else:
+                    self.reset_stable_ticks += 1
+            if self.tick > 20 and self.reset_stable_ticks >= 50:
                 self.request_offboard_and_arm()
+            elif self.tick % 50 == 0:
+                self.get_logger().info(
+                    f'等待 EKF 原点稳定 ({self.reset_stable_ticks}/50 ticks)')
             if armed and offboard:
                 self.state = 'TAKEOFF'
                 self.target = [0.0, 0.0, -self.alt]

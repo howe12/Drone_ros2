@@ -74,16 +74,77 @@ index 0000000..e07d115
 +PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_mono_cam_down}
 +
 +. ${R}etc/init.d-posix/airframes/4001_gz_x500
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/4014_gz_x500_lidar_3d b/ROMFS/px4fmu_common/init.d-posix/airframes/4014_gz_x500_lidar_3d
+new file mode 100644
+index 0000000..56d9858
+--- /dev/null
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/4014_gz_x500_lidar_3d
+@@ -0,0 +1,54 @@
++#!/bin/sh
++#
++# @name Gazebo x500 lidar 3d (local E5)
++#
++# @type Quadrotor
++#
++
++. ${R}etc/init.d/rc.mc_defaults
++
++PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
++PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
++PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_lidar_3d}
++
++param set-default SIM_GZ_EN 1
++
++param set-default SENS_EN_GPSSIM 1
++param set-default SENS_EN_BAROSIM 0
++param set-default SENS_EN_MAGSIM 1
++
++param set-default CA_AIRFRAME 0
++param set-default CA_ROTOR_COUNT 4
++
++param set-default CA_ROTOR0_PX 0.13
++param set-default CA_ROTOR0_PY 0.22
++param set-default CA_ROTOR0_KM  0.05
++
++param set-default CA_ROTOR1_PX -0.13
++param set-default CA_ROTOR1_PY -0.20
++param set-default CA_ROTOR1_KM  0.05
++
++param set-default CA_ROTOR2_PX 0.13
++param set-default CA_ROTOR2_PY -0.22
++param set-default CA_ROTOR2_KM -0.05
++
++param set-default CA_ROTOR3_PX -0.13
++param set-default CA_ROTOR3_PY 0.20
++param set-default CA_ROTOR3_KM -0.05
++
++param set-default SIM_GZ_EC_FUNC1 101
++param set-default SIM_GZ_EC_FUNC2 102
++param set-default SIM_GZ_EC_FUNC3 103
++param set-default SIM_GZ_EC_FUNC4 104
++
++param set-default SIM_GZ_EC_MIN1 150
++param set-default SIM_GZ_EC_MIN2 150
++param set-default SIM_GZ_EC_MIN3 150
++param set-default SIM_GZ_EC_MIN4 150
++
++param set-default SIM_GZ_EC_MAX1 1000
++param set-default SIM_GZ_EC_MAX2 1000
++param set-default SIM_GZ_EC_MAX3 1000
++param set-default SIM_GZ_EC_MAX4 1000
++
++param set-default MPC_THR_HOVER 0.60
 diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
-index 9277ad3..048f996 100644
+index 9277ad3..75d3590 100644
 --- a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
 +++ b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
-@@ -83,6 +83,8 @@ px4_add_romfs_files(
+@@ -83,6 +83,9 @@ px4_add_romfs_files(
  	4009_gz_r1_rover
  	4010_gz_x500_mono_cam
  	4011_gz_lawnmower
 +	4012_gz_x500_lidar_2d
 +	4013_gz_x500_mono_cam_down
++	4014_gz_x500_lidar_3d
  
  	6011_gazebo-classic_typhoon_h480
  	6011_gazebo-classic_typhoon_h480.post

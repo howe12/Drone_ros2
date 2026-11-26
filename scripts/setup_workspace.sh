@@ -61,6 +61,8 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0011-xtd2-clock-bridge.patch" 2
 git -C third_party/XTDrone2 apply "$ROOT/patches/0012-xtd2-x500-odometry-plugin.patch" 2>/dev/null || echo "  补丁12已应用, 跳过"
 # E8: 下视相机机架 autostart + ArUco 标准靶标纹理
 git -C third_party/XTDrone2 apply "$ROOT/patches/0013-xtd2-downcam-autostart.patch" 2>/dev/null || echo "  补丁13已应用, 跳过"
+# E5: 16线3D激光模型 + 点云桥接 + autostart
+git -C third_party/XTDrone2 apply "$ROOT/patches/0015-xtd2-3d-lidar-model-bridge.patch" 2>/dev/null || echo "  补丁15已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then
@@ -118,6 +120,13 @@ echo "[6/6] 编译 PX4 SITL + Gazebo 插件 + ROS2 工作区..."
   && ninja -C build/px4_sitl_default sitl_gazebo-classic )
 # 注: make 的 jobserver 在部分环境报 fd 错误, 上面已自动回退为 ninja 直调
 
+echo "[6.4/6] Point-LIO ROS2 (E5 3D激光惯性里程计, 锁定 commit 59d327bf)..."
+if [ ! -d third_party/point_lio_ros2 ]; then
+    git clone --depth 1 https://github.com/thamyis100/point_lio_ros2.git third_party/point_lio_ros2 \
+    || git clone --depth 1 https://ghfast.top/https://github.com/thamyis100/point_lio_ros2.git third_party/point_lio_ros2
+fi
+# livox_ros_driver2 消息桩包已入库 (ros2_ws/src/livox_ros_driver2_stub), 无需 Livox SDK
+
 echo "[6.5/6] ros_gz 源码 (仅 xtd2 平台需要; 二进制包只支持 Fortress, Harmonic 需源码编译)..."
 if [ ! -d third_party/ros_gz ]; then
     git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git third_party/ros_gz \
@@ -134,7 +143,7 @@ if gz sim --version 2>/dev/null | grep -q "Gazebo Sim"; then
 fi
 
 ( source /opt/ros/humble/setup.bash \
-  && cd ros2_ws && colcon build --symlink-install --base-paths src ../third_party/XTDrone2 )
+  && cd ros2_ws && colcon build --symlink-install --base-paths src ../third_party/XTDrone2 ../third_party/point_lio_ros2 )
 
 echo ""
 echo "================ 复现完成 ================"

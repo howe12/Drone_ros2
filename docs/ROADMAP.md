@@ -64,8 +64,16 @@
   (上游仅 x500_vision 有); odom_to_tf 节点 + base_link→lidar 静态 TF; use_sim_time 全链路
 - 用法: ros2 launch drone_sim slam_2d.launch.py (栈需 walls+lidar 机型)
 
-**E5. 3D 激光 SLAM/里程计** — FAST-LIO2 / Point-LIO（ROS2 移植版）+ x500_lidar
-- 对应模块: 2/3；难度 ★★★；产出: 高频里程计+点云地图
+**E5. 3D 激光 SLAM/里程计** ✅ **已完成 (2026-11-26, Issue #5)**
+- Point-LIO (FAST-LIO2 后继算法, thamyis100/point_lio_ros2 @59d327bf) 编译集成
+- 自建 16线3D激光模型 lidar_3d_v1 + x500_lidar_3d + 机架 4014 (补丁0008/0015)
+- lidar3d_adapter: gz 点云补 ring/time 字段 + inf 过滤 (无回波点破坏 ikd-tree)
+- livox_ros_driver2 消息桩包入库 (无需 Livox SDK)
+- 实测: /odom 8Hz, 高度误差 9cm (LIO 4.87m vs 真值 4.96m), 3m 正方形轨迹完整复现,
+  配准点云 43808 点覆盖 walls 场景 (maps/e5_registered_cloud.npy, 截图 19/20)
+- 关键修复: EKF 原点重置门控 —— z 原点跳变使"地面=local z=-5", 任务误判已起飞致贴地爬行;
+  waypoint_mission 现要求重置计数器稳定 5s 才解锁
+- 用法: ros2 launch drone_sim point_lio.launch.py (栈需 walls + gz_x500_lidar_3d)
 
 **E6. 视觉惯性里程计** — VINS-Fusion ROS2 移植 + x500_mono_cam(+IMU)
 - 对应模块: 2；难度 ★★★★（编译/标定/时间同步坑多）
