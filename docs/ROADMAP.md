@@ -75,8 +75,14 @@
   waypoint_mission 现要求重置计数器稳定 5s 才解锁
 - 用法: ros2 launch drone_sim point_lio.launch.py (栈需 walls + gz_x500_lidar_3d)
 
-**E6. 视觉惯性里程计** — VINS-Fusion ROS2 移植 + x500_mono_cam(+IMU)
-- 对应模块: 2；难度 ★★★★（编译/标定/时间同步坑多）
+**E6. 视觉惯性里程计** ⚠️ **集成完成/初始化受阻 (2026-11-26, Issue #6 保持 open)**
+- VINS-Fusion ROS2 Humble 版 (fanhong-li @8993f559) 编译成功 (补丁0017: Ceres 无 CUDA 固定 DENSE_SCHUR)
+- 输入链路验证: 相机 1280x960 rgb8 @26Hz (内参 fx=fy=539.94 与配置一致), IMU 250Hz (含重力 10.4)
+- body_T_cam0 外参按"光心系(右/下/前)←机体系(前/左/上)"推导, 相机装于 base_link 前上方 (0.12,0.03,0.242)
+- 特征跟踪正常 (~299 点), 画面纹理充足 (ORB 500 点)
+- **阻塞**: 单目视觉-惯性对齐反复失败 ("misalign visual structure with IMU"),
+  尝试 estimate_extrinsic=0/1、静态起飞/圆周激励均未进入 odometry 输出
+- 下一步: 试双目(加一路相机)/换 VINS-Mono 官方 ROS2 版/调 keyframe_parallax 与初始化窗口
 
 **E7. 局部规划与避障** ⚠️ **部分完成 (2026-11-26, Issue #7 保持 open)**
 - ego-planner (Kaede-Rukawa/ego_planner_ros_humble @6aa3eb9d) 编译集成 (需链接器改 gold: 2072 库/目标)

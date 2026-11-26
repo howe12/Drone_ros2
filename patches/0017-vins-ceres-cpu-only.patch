@@ -1,0 +1,20 @@
+diff --git a/vins/src/estimator/estimator.cpp b/vins/src/estimator/estimator.cpp
+index 53ee2b8..6c19fa4 100755
+--- a/vins/src/estimator/estimator.cpp
++++ b/vins/src/estimator/estimator.cpp
+@@ -1166,12 +1166,9 @@ void Estimator::optimization()
+ 
+     ceres::Solver::Options options;
+ 
+-    if (USE_GPU_CERES)
+-        // std::cout << "1" << endl;
+-        options.dense_linear_algebra_library_type = ceres::CUDA;
+-    else
+-        // std::cout << "2" << endl;
+-        options.linear_solver_type = ceres::DENSE_SCHUR;
++    // 本地补丁(E6): 系统 Ceres 未编译 CUDA 后端 (无 ceres::CUDA 符号), 统一走 CPU 稠密 Schur
++    (void)USE_GPU_CERES;
++    options.linear_solver_type = ceres::DENSE_SCHUR;
+ 
+     //options.num_threads = 2;
+     options.trust_region_strategy_type = ceres::DOGLEG;
