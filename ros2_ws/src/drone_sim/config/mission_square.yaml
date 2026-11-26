@@ -1,0 +1,8 @@
+# E2 示例任务: 正方形航线 (NED 坐标, z 负值=高度)
+takeoff_altitude: 5.0
+cruise_speed: 1.5
+waypoints:
+  - {x: 3.0, y: 0.0, z: -5.0, hold: 1.0}
+  - {x: 3.0, y: 3.0, z: -5.0, hold: 1.0}
+  - {x: 0.0, y: 3.0, z: -5.0, hold: 1.0}
+  - {x: 0.0, y: 0.0, z: -5.0, hold: 1.0}

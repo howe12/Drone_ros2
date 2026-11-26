@@ -1,0 +1,5 @@
+# E2 示例任务: 8 字轨迹
+takeoff_altitude: 5.0
+cruise_speed: 1.5
+pattern: figure8
+pattern_args: {size: 3.0, points: 32}

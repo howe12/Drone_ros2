@@ -1,0 +1,5 @@
+# E2 示例任务: 圆形轨迹 (24 航点拟合)
+takeoff_altitude: 5.0
+cruise_speed: 1.5
+pattern: circle
+pattern_args: {radius: 3.0, points: 24}

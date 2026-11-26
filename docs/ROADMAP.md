@@ -41,11 +41,14 @@
 - 新增 PX4 机架 4012_gz_x500_lidar_2d；命名空间自动推导；补丁 0007/0008
 - 启动: `bash scripts/run_simulation.sh xtd2 gz_x500_mono_cam|gz_x500_depth|gz_x500_lidar_2d`
 
-**E2. 航点任务与可视化** `drone_sim/waypoint_mission`
-- 对应模块: 1/7
-- 内容: 航点文件(YAML)→轨迹生成(直线/圆/螺旋/8字)→setpoint 流；
-  RViz Path/Marker 可视化；任务状态机参数化
-- 难度: ★★
+**E2. 航点任务与可视化** `drone_sim/waypoint_mission` ✅ **已完成 (2026-11-26, Issue #2)**
+- 成果: YAML 航点 + 4 种轨迹模式 (square/circle/spiral/figure8)，正方形/圆形全程实测，
+  RViz Path/Marker 可视化，到点误差 ≤0.35m，自动降落
+- 用法: `ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square`
+
+**E13. 仿真场景扩展** ✅ **已完成 (2026-11-26, Issue #13)**
+- 世界切换参数化 (补丁0009)，walls/lawn/aruco 实测，画廊 docs/SCENARIOS.md
+- 已知问题: indoor1 资产兼容性 (gz abort)；Classic gazebo 包被外部移除待 sudo 恢复
 
 **E3. 多机 spawn 与编队入门** `drone_sim/multi_vehicle`
 - 对应模块: 6

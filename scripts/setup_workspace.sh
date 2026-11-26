@@ -51,6 +51,18 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0004-xtd2-remove-unused-rosgzbr
 git -C third_party/XTDrone2 apply "$ROOT/patches/0006-xtd2-bridge-parameter-bridge.patch" 2>/dev/null || echo "  补丁6已应用, 跳过"
 # E1: 传感器桥接 yaml 扩展 + 全部 gz 机架 autostart 映射
 git -C third_party/XTDrone2 apply "$ROOT/patches/0007-xtd2-sensor-bridge-and-autostart.patch" 2>/dev/null || echo "  补丁7已应用, 跳过"
+# E13: 桥接世界名参数化 (传感器路径 /world/<name>/)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0009-xtd2-world-parameterization.patch" 2>/dev/null || echo "  补丁9已应用, 跳过"
+
+# E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
+if [ ! -d third_party/gazebo_models ]; then
+    git clone --filter=blob:none --sparse --depth 1 https://github.com/osrf/gazebo_models.git third_party/gazebo_models \
+    || git clone --filter=blob:none --sparse --depth 1 https://ghfast.top/https://github.com/osrf/gazebo_models.git third_party/gazebo_models
+    git -C third_party/gazebo_models sparse-checkout set cafe cafe_table cinder_block_wide coke_can grey_tote
+fi
+for m in cafe cafe_table cinder_block_wide coke_can grey_tote; do
+    [ -d "third_party/XTDrone2/xtd2_gz_sim/models/$m" ] || cp -r "third_party/gazebo_models/$m" "third_party/XTDrone2/xtd2_gz_sim/models/$m"
+done
 
 echo "[3/6] 应用本地适配补丁 (无 sudo 环境)..."
 git -C PX4-Autopilot apply "$ROOT/patches/0001-px4-sitl-gazebo-classic-gstreamer-off.patch" 2>/dev/null || echo "  补丁1已应用, 跳过"

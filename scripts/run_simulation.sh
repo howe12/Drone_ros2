@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # ============================================================
-# 一键启动仿真 (双平台切换)
+# 一键启动仿真 (双平台切换 + 世界选择)
 # 用法:
-#   bash scripts/run_simulation.sh                        # classic 平台 + iris + drone_sim 演示
-#   bash scripts/run_simulation.sh classic typhoon_h480   # classic 平台换机型 (六旋翼)
-#   bash scripts/run_simulation.sh classic standard_vtol  # 复合翼; 机型列表见 README
-#   bash scripts/run_simulation.sh xtd2                   # XTDrone2 平台 (gz_x500, 需 Gazebo Harmonic)
-#   bash scripts/run_simulation.sh xtd2 gz_x500_depth     # XTDrone2 换模型
-# 说明: 机型是运行时参数, 不需要 git 分支; 两个平台共用同一份 PX4 编译产物。
+#   bash scripts/run_simulation.sh                          # classic + iris + 默认世界 + 自动演示
+#   bash scripts/run_simulation.sh classic typhoon_h480     # classic 换机型
+#   bash scripts/run_simulation.sh classic iris warehouse   # classic 换世界 (仓库场景)
+#   bash scripts/run_simulation.sh xtd2                     # XTDrone2 (gz_x500, aruco 世界)
+#   bash scripts/run_simulation.sh xtd2 gz_x500_depth indoor1  # 深度机型 + 室内场景
+#   bash scripts/run_simulation.sh xtd2 gz_x500_lidar_2d walls # 激光机型 + 障碍墙场景
+# 世界列表: xtd2 → third_party/XTDrone2/xtd2_gz_sim/worlds/
+#           classic → PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds/
+# 说明: 机型/世界都是运行时参数, 不需要 git 分支; 两平台共用同一份 PX4 编译产物。
 # ============================================================
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLATFORM="${1:-classic}"
 MODEL="${2:-}"
+WORLD="${3:-}"
 export PATH=/usr/bin:$HOME/.local/bin:$PATH
 export LD_LIBRARY_PATH=$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 source /opt/ros/humble/setup.bash
@@ -35,7 +39,12 @@ classic)
     echo "[2/3] 启动 PX4 SITL + Gazebo Classic (首次会自动编译)..."
     cd "$ROOT/PX4-Autopilot"
     # 用 cmake 直调 ninja, 绕开 make jobserver 在部分环境的 fd 错误
-    cmake --build build/px4_sitl_default --target "gazebo-classic_${MODEL}" 2>&1 | bash "$CAP" "$LOGDIR/px4_sitl.log" 50 &
+    if [ -n "$WORLD" ]; then
+        TARGET="gazebo-classic_${MODEL}__${WORLD}"
+    else
+        TARGET="gazebo-classic_${MODEL}"
+    fi
+    cmake --build build/px4_sitl_default --target "$TARGET" 2>&1 | bash "$CAP" "$LOGDIR/px4_sitl.log" 50 &
 
     echo "等待 PX4 就绪 (30s)..."
     sleep 30
@@ -63,7 +72,7 @@ xtd2)
         echo "装好后重跑本命令。classic 平台不受影响: bash scripts/run_simulation.sh classic"
         exit 1
     fi
-    echo "[xtd2] 模型: $MODEL  PX4: $ROOT/PX4-Autopilot"
+    echo "[xtd2] 模型: $MODEL  世界: ${WORLD:-aruco}  PX4: $ROOT/PX4-Autopilot"
     # 命名空间与 PX4 实际模型名一致: {model去掉gz_前缀}_{id} (如 x500_mono_cam_0)
     NS="${MODEL#gz_}_0"
     echo "[xtd2] 命名空间: $NS"
@@ -77,6 +86,11 @@ xtd2)
         pkill -f "multirotor_communication" 2>/dev/null || true
         pkill -f "parameter_bridge" 2>/dev/null || true
         pkill -f "gz sim" 2>/dev/null || true
+        sleep 2
+        # SIGKILL 兜底: 防止孤儿 px4 占用实例锁导致下次启动失败
+        pkill -9 -f "px4_sitl_default/bin/px4" 2>/dev/null || true
+        pkill -9 -x MicroXRCEAgent 2>/dev/null || true
+        pkill -9 -f "gz sim" 2>/dev/null || true
         echo "[xtd2] 已清理全部仿真进程"
     }
     trap cleanup_xtd2 EXIT
@@ -84,7 +98,8 @@ xtd2)
     ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
         px4_dir:="$ROOT/PX4-Autopilot" \
         model_name:="$MODEL" \
-        namespace:="$NS" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
+        namespace:="$NS" \
+        world_name:="${WORLD:-aruco}" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
     ;;
 
 *)

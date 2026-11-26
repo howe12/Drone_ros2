@@ -1,0 +1,66 @@
+diff --git a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+index 84cd92e..9ea29dc 100644
+--- a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
++++ b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+@@ -31,7 +31,7 @@
+ 
+ # IMU (x500_base 自带, gz 发布在完整传感器路径; 世界名默认 aruco)
+ - ros_topic_name: "${ros_ns}/imu"
+-  gz_topic_name: "/world/aruco/model/${gz_ns}/link/base_link/sensor/imu_sensor/imu"
++  gz_topic_name: "/world/${world}/model/${gz_ns}/link/base_link/sensor/imu_sensor/imu"
+   ros_type_name: "sensor_msgs/msg/Imu"
+   gz_type_name: "gz.msgs.IMU"
+   lazy: true
+@@ -54,14 +54,14 @@
+ 
+ # 2D 激光 (x500_lidar_2d, 实测为完整传感器路径; 世界名默认 aruco)
+ - ros_topic_name: "${ros_ns}/scan"
+-  gz_topic_name: "/world/aruco/model/${gz_ns}/link/link/sensor/lidar_2d_v2/scan"
++  gz_topic_name: "/world/${world}/model/${gz_ns}/link/link/sensor/lidar_2d_v2/scan"
+   ros_type_name: "sensor_msgs/msg/LaserScan"
+   gz_type_name: "gz.msgs.LaserScan"
+   lazy: true
+   direction: GZ_TO_ROS
+ 
+ - ros_topic_name: "${ros_ns}/scan/points"
+-  gz_topic_name: "/world/aruco/model/${gz_ns}/link/link/sensor/lidar_2d_v2/scan/points"
++  gz_topic_name: "/world/${world}/model/${gz_ns}/link/link/sensor/lidar_2d_v2/scan/points"
+   ros_type_name: "sensor_msgs/msg/PointCloud2"
+   gz_type_name: "gz.msgs.PointCloudPacked"
+   lazy: true
+diff --git a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+index 5254bea..ce2cca1 100644
+--- a/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
++++ b/xtd2_launch/launch/xtd2_vehicle_spawn_launch.py
+@@ -69,7 +69,8 @@ def generate_launch_description():
+         output='screen',
+         arguments=[
+             "--ros_ns", LaunchConfiguration('namespace'),
+-            "--gz_ns", LaunchConfiguration('namespace')
++            "--gz_ns", LaunchConfiguration('namespace'),
++            "--world", LaunchConfiguration('world_name')
+         ]
+     )
+ 
+diff --git a/xtd2_launch/xtd2_launch/utils/bridge_launch.py b/xtd2_launch/xtd2_launch/utils/bridge_launch.py
+index 82a71fd..3e8cf37 100644
+--- a/xtd2_launch/xtd2_launch/utils/bridge_launch.py
++++ b/xtd2_launch/xtd2_launch/utils/bridge_launch.py
+@@ -28,6 +28,8 @@ def main():
+ 
+     parser.add_argument('--ros_ns', type=str, help='ROS namespace', required=True)
+     parser.add_argument('--gz_ns', type=str, help='Gazebo namespace', required=True)
++    # 本地扩展(补丁0009): 世界名参数化, 传感器完整路径含 /world/<name>/
++    parser.add_argument('--world', type=str, help='Gazebo world name', required=False, default='aruco')
+ 
+     args, unknown = parser.parse_known_args()
+ 
+@@ -36,7 +38,7 @@ def main():
+     yaml_tmp_output = os.path.join(FindPackageShare("xtd2_launch").find('xtd2_launch'), 'launch', 'launch_config', f'tmp_ros_gz_bridge_{args.ros_ns}.yaml')
+     with open(yaml_template, 'r') as file:
+         yaml_template_content = file.read()
+-    template = Template(yaml_template_content).safe_substitute({'gz_ns': args.gz_ns, 'ros_ns': args.ros_ns})
++    template = Template(yaml_template_content).safe_substitute({'gz_ns': args.gz_ns, 'ros_ns': args.ros_ns, 'world': args.world})
+     with open(yaml_tmp_output, 'w') as file:
+         yaml.safe_dump(yaml.safe_load(template), file)
+ 

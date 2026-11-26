@@ -1,0 +1,5 @@
+# E2 示例任务: 螺旋上升 (2 圈, 半径 3m, 爬升 2m)
+takeoff_altitude: 4.0
+cruise_speed: 1.2
+pattern: spiral
+pattern_args: {radius: 3.0, turns: 2.0, dz: 2.0, points: 40}
