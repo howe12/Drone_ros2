@@ -1,0 +1,16 @@
+diff --git a/xtd2_gz_sim/models/x500_base/model.sdf b/xtd2_gz_sim/models/x500_base/model.sdf
+index f4e450e..354dff1 100644
+--- a/xtd2_gz_sim/models/x500_base/model.sdf
++++ b/xtd2_gz_sim/models/x500_base/model.sdf
+@@ -578,5 +578,11 @@
+         </dynamics>
+       </axis>
+     </joint>
++    <!-- 本地新增(补丁0012): 里程计发布插件, SLAM/TF 链路必需 (上游仅 x500_vision 有) -->
++    <plugin
++      filename="gz-sim-odometry-publisher-system"
++      name="gz::sim::systems::OdometryPublisher">
++      <dimensions>3</dimensions>
++    </plugin>
+   </model>
+ </sdf>

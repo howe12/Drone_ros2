@@ -57,8 +57,12 @@
 
 ### P1 — 核心算法集成（每项 1–3 周量级）
 
-**E4. 2D 激光 SLAM** — slam_toolbox（Humble 原生包）+ x500_lidar_2d
-- 对应模块: 3；难度 ★★；产出: 建图+定位，为 2D 规划铺路
+**E4. 2D 激光 SLAM** ✅ **已完成 (2026-11-26, Issue #4)**
+- slam_toolbox (Humble 原生) + walls 世界建图飞行实测: 252×410 栅格 @0.05m, 631 障碍格
+- 地图: maps/e4_walls_map.pgm+yaml (nav2 格式), 截图 14/15
+- 关键修复: 补丁0011 /clock+协方差里程计桥接; 补丁0012 x500_base 加 OdometryPublisher 插件
+  (上游仅 x500_vision 有); odom_to_tf 节点 + base_link→lidar 静态 TF; use_sim_time 全链路
+- 用法: ros2 launch drone_sim slam_2d.launch.py (栈需 walls+lidar 机型)
 
 **E5. 3D 激光 SLAM/里程计** — FAST-LIO2 / Point-LIO（ROS2 移植版）+ x500_lidar
 - 对应模块: 2/3；难度 ★★★；产出: 高频里程计+点云地图

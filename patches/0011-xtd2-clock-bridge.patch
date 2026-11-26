@@ -1,0 +1,28 @@
+diff --git a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+index 9ea29dc..550a468 100644
+--- a/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
++++ b/xtd2_launch/launch/launch_config/ros_gz_bridge.yaml
+@@ -12,7 +12,23 @@
+   lazy: true
+   direction: GZ_TO_ROS
+ 
++# walls 等世界的里程计带协方差 (补丁0011, 与上面普通版并存, 各世界按需出数据)
++- ros_topic_name: "${ros_ns}/odometry"
++  gz_topic_name: "/model/${gz_ns}/odometry_with_covariance"
++  ros_type_name: "nav_msgs/msg/Odometry"
++  gz_type_name: "gz.msgs.OdometryWithCovariance"
++  lazy: true
++  direction: GZ_TO_ROS
++
+ # ===== E1 传感器桥接 (本地扩展, 补丁0007) =====
++# 仿真时钟 (E4 SLAM 等 use_sim_time 节点必需, 补丁0011; 非 lazy 保证常流)
++- ros_topic_name: "/clock"
++  gz_topic_name: "/clock"
++  ros_type_name: "rosgraph_msgs/msg/Clock"
++  gz_type_name: "gz.msgs.Clock"
++  lazy: false
++  direction: GZ_TO_ROS
++
+ # 话题名以 `gz topic -l` 实测为准:
+ # 相机 (x500_mono_cam / x500_depth 的 RGB), 模型未加命名空间前缀, 为全局话题
+ - ros_topic_name: "${ros_ns}/camera/image_raw"

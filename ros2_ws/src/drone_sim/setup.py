@@ -27,6 +27,7 @@ setup(
             'offboard_demo = drone_sim.offboard_demo:main',
             'waypoint_mission = drone_sim.waypoint_mission:main',
             'formation_follower = drone_sim.formation_follower:main',
+            'odom_to_tf = drone_sim.odom_to_tf:main',
         ],
     },
 )

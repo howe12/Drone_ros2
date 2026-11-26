@@ -55,6 +55,10 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0007-xtd2-sensor-bridge-and-aut
 git -C third_party/XTDrone2 apply "$ROOT/patches/0009-xtd2-world-parameterization.patch" 2>/dev/null || echo "  补丁9已应用, 跳过"
 # E3: 多实例独立工作目录 (防 parameters.bson 冲突)
 git -C third_party/XTDrone2 apply "$ROOT/patches/0010-xtd2-per-instance-workdir.patch" 2>/dev/null || echo "  补丁10已应用, 跳过"
+# E4: /clock 桥接 (use_sim_time 节点必需)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0011-xtd2-clock-bridge.patch" 2>/dev/null || echo "  补丁11已应用, 跳过"
+# E4: x500_base 里程计发布插件 (SLAM TF 链路必需)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0012-xtd2-x500-odometry-plugin.patch" 2>/dev/null || echo "  补丁12已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then
