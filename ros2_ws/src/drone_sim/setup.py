@@ -32,6 +32,7 @@ setup(
             'aruco_precision_landing = drone_sim.aruco_precision_landing:main',
             'yolo_detector = drone_sim.yolo_detector:main',
             'lidar3d_adapter = drone_sim.lidar3d_adapter:main',
+            'ego_bridge = drone_sim.ego_bridge:main',
         ],
     },
 )

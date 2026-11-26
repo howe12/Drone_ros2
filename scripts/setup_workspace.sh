@@ -63,6 +63,8 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0012-xtd2-x500-odometry-plugin.
 git -C third_party/XTDrone2 apply "$ROOT/patches/0013-xtd2-downcam-autostart.patch" 2>/dev/null || echo "  补丁13已应用, 跳过"
 # E5: 16线3D激光模型 + 点云桥接 + autostart
 git -C third_party/XTDrone2 apply "$ROOT/patches/0015-xtd2-3d-lidar-model-bridge.patch" 2>/dev/null || echo "  补丁15已应用, 跳过"
+# E7: 避障世界
+git -C third_party/XTDrone2 apply "$ROOT/patches/0016-xtd2-e7-obstacle-world.patch" 2>/dev/null || echo "  补丁16已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then
@@ -127,6 +129,12 @@ if [ ! -d third_party/point_lio_ros2 ]; then
 fi
 # livox_ros_driver2 消息桩包已入库 (ros2_ws/src/livox_ros_driver2_stub), 无需 Livox SDK
 
+echo "[6.45/6] ego-planner (E7 局部规划, 锁定 commit 6aa3eb9d)..."
+if [ ! -d third_party/ego_planner_ros_humble ]; then
+    git clone --depth 1 https://github.com/Kaede-Rukawa/ego_planner_ros_humble.git third_party/ego_planner_ros_humble \
+    || git clone --depth 1 https://ghfast.top/https://github.com/Kaede-Rukawa/ego_planner_ros_humble.git third_party/ego_planner_ros_humble
+fi
+
 echo "[6.5/6] ros_gz 源码 (仅 xtd2 平台需要; 二进制包只支持 Fortress, Harmonic 需源码编译)..."
 if [ ! -d third_party/ros_gz ]; then
     git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git third_party/ros_gz \
@@ -143,7 +151,11 @@ if gz sim --version 2>/dev/null | grep -q "Gazebo Sim"; then
 fi
 
 ( source /opt/ros/humble/setup.bash \
-  && cd ros2_ws && colcon build --symlink-install --base-paths src ../third_party/XTDrone2 ../third_party/point_lio_ros2 )
+  && cd ros2_ws && colcon build --symlink-install \
+       --base-paths src ../third_party/XTDrone2 ../third_party/point_lio_ros2 \
+         ../third_party/ego_planner_ros_humble/src/planner \
+         ../third_party/ego_planner_ros_humble/src/uav_simulator/Utils \
+       --cmake-args -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=gold" )
 
 echo ""
 echo "================ 复现完成 ================"

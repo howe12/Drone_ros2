@@ -78,9 +78,14 @@
 **E6. 视觉惯性里程计** — VINS-Fusion ROS2 移植 + x500_mono_cam(+IMU)
 - 对应模块: 2；难度 ★★★★（编译/标定/时间同步坑多）
 
-**E7. 局部规划与避障** — ego-planner(ROS2) 或 nav2 + x500_depth
-- 对应模块: 4；难度 ★★★★；链路: 深度图→局部栅格→规划→setpoint
-- 依赖: E1
+**E7. 局部规划与避障** ⚠️ **部分完成 (2026-11-26, Issue #7 保持 open)**
+- ego-planner (Kaede-Rukawa/ego_planner_ros_humble @6aa3eb9d) 编译集成 (需链接器改 gold: 2072 库/目标)
+- 深度相机(OakD-Lite 32FC1) → grid_map 局部占据栅格 → B样条规划 → traj_server → /position_cmd
+- drone_sim/ego_bridge: position_cmd → PX4 Offboard (自动解锁/心跳/速度前馈限幅)
+- 实测: 规划输出正确 (5.94,0,1.20 = 目标 6,0,1.2), 障碍最小距离 0.82m (不碰撞)
+- **阻塞**: EKF 航向/原点重置 (heading_reset_counter/xy_reset_counter) 会使 PX4 局部系
+  相对 gz 世界系旋转, 固定 ENU→NED 映射飞行中失配 → 目标收敛不稳定 (漂移)
+- 下一步: 用 PX4 视觉/动捕里程计输入或在线估计两系变换; 或用 PX4 原生 EKF 输出给 ego
 
 **E8. 视觉检测与精准降落** ✅ **已完成 (2026-11-26, Issue #8)**
 - ArUco 精准降落世界系真值验证: **落点距靶标中心 0.052m** (0.5m 靶标)
