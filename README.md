@@ -60,14 +60,22 @@ Gazebo 仿真 ↔ PX4 SITL ↔ MicroXRCEAgent (UDP 8888) ↔ ROS2 节点 (drone_
 
 ## 快速开始
 
+以下命令均在**项目根目录** `/develop/IDEA/Drone_ros2` 下执行（注意 `cd` 层级）。
+
 ```bash
 # 0. 编译 (已完成一次, 改动后重跑)
-cd ros2_ws && colcon build --symlink-install
+#    编译终端只 source humble, 不要 source 本工作空间, 否则 colcon 报 override 警告
+source /opt/ros/humble/setup.bash
+cd ros2_ws
+colcon build --symlink-install --base-paths src ../third_party/XTDrone2  # 全量(含 xtd2 包)
+# 只重编自己的包: colcon build --symlink-install --packages-select drone_sim
+cd ..    # ★ 回到项目根目录, 否则下一步找不到 scripts/
 
 # 1. 一键启动 (Agent + PX4 SITL + Gazebo GUI + 演示节点)
 bash scripts/run_simulation.sh                  # classic 平台, iris 四旋翼
 bash scripts/run_simulation.sh classic typhoon_h480   # 换六旋翼 (运行时参数, 无需分支)
 bash scripts/run_simulation.sh xtd2             # XTDrone2 平台 (需先装 Gazebo Harmonic)
+#    栈已在运行时勿重复启动 (端口冲突); 先停旧栈见 docs/OPERATIONS.md
 
 # 或分步手动启动:
 export LD_LIBRARY_PATH=$HOME/.local/lib:$LD_LIBRARY_PATH
@@ -78,6 +86,12 @@ source ros2_ws/install/setup.bash
 ros2 launch drone_sim demo.launch.py                 # 终端 3
 # 也可以跑官方示例: ros2 launch px4_offboard offboard_control.launch.py
 ```
+
+> 常见小坑:
+> - `bash: scripts/run_simulation.sh: No such file or directory` → 你在 `ros2_ws/` 里，`cd ..` 回根目录。
+> - colcon 警告 `'px4_msgs' is in ... underlay` → 编译前 source 过本工作空间导致，无害；
+>   按上面只 source humble 即可消除。
+> - `setuptools EasyInstallDeprecationWarning` → Python 打包工具的正常告警，忽略。
 
 ## 手动控制（xtd2 平台键盘手飞）
 
