@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'offboard_demo = drone_sim.offboard_demo:main',
             'waypoint_mission = drone_sim.waypoint_mission:main',
+            'formation_follower = drone_sim.formation_follower:main',
         ],
     },
 )

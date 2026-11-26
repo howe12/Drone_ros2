@@ -53,6 +53,8 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0006-xtd2-bridge-parameter-brid
 git -C third_party/XTDrone2 apply "$ROOT/patches/0007-xtd2-sensor-bridge-and-autostart.patch" 2>/dev/null || echo "  补丁7已应用, 跳过"
 # E13: 桥接世界名参数化 (传感器路径 /world/<name>/)
 git -C third_party/XTDrone2 apply "$ROOT/patches/0009-xtd2-world-parameterization.patch" 2>/dev/null || echo "  补丁9已应用, 跳过"
+# E3: 多实例独立工作目录 (防 parameters.bson 冲突)
+git -C third_party/XTDrone2 apply "$ROOT/patches/0010-xtd2-per-instance-workdir.patch" 2>/dev/null || echo "  补丁10已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then

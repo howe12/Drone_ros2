@@ -1,0 +1,19 @@
+diff --git a/xtd2_launch/xtd2_launch/utils/px4_launch.py b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+index 61e69b9..743e71a 100644
+--- a/xtd2_launch/xtd2_launch/utils/px4_launch.py
++++ b/xtd2_launch/xtd2_launch/utils/px4_launch.py
+@@ -54,7 +54,13 @@ def main():
+             ns = f"{args.model}_{args.id}"
+ 
+ 
+-    px4_cmd = f"PX4_UXRCE_DDS_NS={ns} PX4_GZ_WORLD={args.world} PX4_SYS_AUTOSTART={sys_autostart} PX4_SIM_MODEL={args.model} PX4_GZ_MODEL_POSE='{args.x},{args.y},{args.z},{args.roll},{args.pitch},{args.yaw}' PX4_GZ_STANDALONE=1 {args.px4_dir}/build/px4_sitl_default/bin/px4 -d -s {args.px4_dir}/build/px4_sitl_default/etc/init.d-posix/rcS {args.px4_dir}/ROMFS/px4fmu_common -i {args.id} -w {args.px4_dir}/build/px4_sitl_default"
++    # 本地修复(补丁0010): 每实例独立工作目录, 避免多实例共享 parameters.bson 冲突
++    # (共享目录时实例1的 MAV_SYS_ID 保存失败, preflight/timesync 异常无法解锁)
++    import os
++    work_dir = f"{args.px4_dir}/build/px4_sitl_default/instance_{args.id}"
++    os.makedirs(work_dir, exist_ok=True)
++
++    px4_cmd = f"PX4_UXRCE_DDS_NS={ns} PX4_GZ_WORLD={args.world} PX4_SYS_AUTOSTART={sys_autostart} PX4_SIM_MODEL={args.model} PX4_GZ_MODEL_POSE='{args.x},{args.y},{args.z},{args.roll},{args.pitch},{args.yaw}' PX4_GZ_STANDALONE=1 {args.px4_dir}/build/px4_sitl_default/bin/px4 -d -s {args.px4_dir}/build/px4_sitl_default/etc/init.d-posix/rcS {args.px4_dir}/ROMFS/px4fmu_common -i {args.id} -w {work_dir}"
+ 
+     _handle = subprocess.Popen(['bash', '-c', px4_cmd])
+ 

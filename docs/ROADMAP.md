@@ -50,12 +50,10 @@
 - 世界切换参数化 (补丁0009)，walls/lawn/aruco 实测，画廊 docs/SCENARIOS.md
 - 已知问题: indoor1 资产兼容性 (gz abort)；Classic gazebo 包被外部移除待 sudo 恢复
 
-**E3. 多机 spawn 与编队入门** `drone_sim/multi_vehicle`
-- 对应模块: 6
-- 基础: xtd2 的 namespace/id 机制、PX4 -i 实例隔离已就绪
-- 内容: N 机 launch（每机 gz model + PX4 实例 + 通信节点）；
-  leader-follower 编队；机间话题隔离验证
-- 难度: ★★★
+**E3. 多机 spawn 与编队入门** `drone_sim/multi_vehicle + formation_follower` ✅ **已完成 (2026-11-26, Issue #3)**
+- 成果: N 机 launch (num 参数)、leader-follower 编队实测 (双机同时起飞, 队形误差 0.14-0.29m)
+- 关键修复: 补丁0010 每实例独立工作目录 (parameters.bson 冲突); 命令 target_system 必须匹配 MAV_SYS_ID (实例号+1)
+- 用法: ros2 launch drone_sim multi_vehicle.launch.py num:=2 px4_dir:=<PX4路径>
 
 ### P1 — 核心算法集成（每项 1–3 周量级）
 

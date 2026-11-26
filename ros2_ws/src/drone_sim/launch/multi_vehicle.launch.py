@@ -1,0 +1,65 @@
+"""E3 多机 launch: N 架 x500 (每机 gz模型+PX4实例+通信节点+桥接), 单 Agent 单世界
+用法:
+  ros2 launch drone_sim multi_vehicle.launch.py num:=2 world:=aruco
+之后分别启动领导机任务与跟随机编队:
+  ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
+  ros2 run drone_sim formation_follower --ros-args -p leader_ns:=/x500_0 -p follower_ns:=/x500_1
+"""
+import os
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration, TextSubstitution, PathJoinSubstitution
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.substitutions import FindPackageShare
+
+
+def generate_launch_description():
+    num_arg = DeclareLaunchArgument('num', default_value='2')
+    world_arg = DeclareLaunchArgument('world', default_value='aruco')
+    model_arg = DeclareLaunchArgument('model', default_value='gz_x500')
+    px4_dir_arg = DeclareLaunchArgument(
+        'px4_dir', default_value=os.path.expanduser('~/PX4-Autopilot'))
+
+    xtd2_launch_share = FindPackageShare('xtd2_launch')
+
+    world_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution([
+            xtd2_launch_share, 'launch', 'gz_launch.py'])),
+        launch_arguments={'world': LaunchConfiguration('world')}.items())
+
+    agent = ExecuteProcess(
+        cmd=['MicroXRCEAgent udp4 -p 8888'], output='screen',
+        name='microxrceagent', shell=True)
+
+    ld = LaunchDescription([num_arg, world_arg, model_arg, px4_dir_arg,
+                            world_launch, agent])
+
+    # num 是 launch 参数, 无法在 Python 层直接 range —— 用 OpaqueFunction
+    from launch.actions import OpaqueFunction
+
+    def spawn_vehicles(context):
+        n = int(context.launch_configurations['num'])
+        model = context.launch_configurations['model']
+        world = context.launch_configurations['world']
+        px4_dir = context.launch_configurations['px4_dir']
+        base = model[3:] if model.startswith('gz_') else model
+        actions = []
+        for i in range(n):
+            actions.append(IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(PathJoinSubstitution([
+                    FindPackageShare('xtd2_launch'), 'launch',
+                    'xtd2_vehicle_spawn_launch.py'])),
+                launch_arguments={
+                    'world_name': world,
+                    'model': model,
+                    'id': str(i),
+                    'namespace': f'{base}_{i}',
+                    'px4_dir': px4_dir,
+                    'x': str(i * 2.0), 'y': '0', 'z': '0',
+                    'roll': '0', 'pitch': '0', 'yaw': '0',
+                }.items()))
+        return actions
+
+    ld.add_action(OpaqueFunction(function=spawn_vehicles))
+    return ld
