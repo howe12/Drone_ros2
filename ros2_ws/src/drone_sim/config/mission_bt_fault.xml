@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- E10 故障注入: 航点 60m + 2s 超时 (物理不可达) -> 序列 FAILURE
+     -> selector 切应急降落分支 -> 安全落地 -->
+<mission name="fault_injection" altitude="3.0">
+  <selector name="root_safety">
+    <sequence name="mission">
+      <Takeoff altitude="3.0"/>
+      <GotoWaypoint name="unreachable" x="500.0" y="0.0" z="3.0" timeout="2.0"/>
+      <Land name="land"/>
+    </sequence>
+    <EmergencyLand name="emergency"/>
+  </selector>
+</mission>

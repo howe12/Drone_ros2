@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!-- E10 标准任务: 起飞 -> 4 航点方形 -> 降落
+     根为 selector: 任务失败时自动切应急降落分支 -->
+<mission name="square_mission" altitude="3.0">
+  <selector name="root_safety">
+    <sequence name="mission">
+      <Takeoff altitude="3.0"/>
+      <sequence name="waypoints">
+        <GotoWaypoint name="wp1" x="3.0" y="0.0" z="3.0"/>
+        <GotoWaypoint name="wp2" x="3.0" y="3.0" z="3.0"/>
+        <GotoWaypoint name="wp3" x="0.0" y="3.0" z="3.0"/>
+        <GotoWaypoint name="wp4" x="0.0" y="0.0" z="3.0"/>
+      </sequence>
+      <Land name="land"/>
+    </sequence>
+    <EmergencyLand name="emergency"/>
+  </selector>
+</mission>

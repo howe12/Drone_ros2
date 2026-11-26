@@ -135,6 +135,9 @@ if [ ! -d third_party/ego_planner_ros_humble ]; then
     || git clone --depth 1 https://ghfast.top/https://github.com/Kaede-Rukawa/ego_planner_ros_humble.git third_party/ego_planner_ros_humble
 fi
 
+echo "[6.46/6] py_trees (E10 行为树, 纯 Python)..."
+/usr/bin/python3 -m pip install --user --quiet py_trees 2>/dev/null || python3 -m pip install --quiet py_trees
+
 echo "[6.47/6] VINS-Fusion ROS2 (E6 VIO, 锁定 commit 8993f559)..."
 if [ ! -d third_party/vins_fusion_ros2 ]; then
     git clone --depth 1 https://github.com/fanhong-li/VINS-Fusion-ROS2-Humble.git third_party/vins_fusion_ros2 \

@@ -13,7 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
-        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml') + glob('config/*.xml')),
         (os.path.join('share', package_name, 'models'), glob('models/*.pt')),
     ],
     install_requires=['setuptools'],
@@ -34,6 +34,7 @@ setup(
             'lidar3d_adapter = drone_sim.lidar3d_adapter:main',
             'ego_bridge = drone_sim.ego_bridge:main',
             'vio_evaluator = drone_sim.vio_evaluator:main',
+            'bt_mission = drone_sim.bt_mission:main',
         ],
     },
 )

@@ -105,7 +105,14 @@
 ### P2 — 进阶方向（按需）
 
 **E9. 集群规划** — ego_planner_swarm（XTDrone2 路线图同款）；依赖 E3+E7
-**E10. 任务层行为树** — BehaviorTree.CPP/py_trees 任务编排；依赖 E2
+**E10. 行为树任务层** ✅ **已完成 (2026-11-26, Issue #10)**
+- py_trees 行为树: 动作节点 Takeoff / GotoWaypoint / Hover / Land / RTL / EmergencyLand / WaitArmed,
+  条件 AltitudeAbove, 装饰器 Timeout; 复合 Sequence/Selector/Parallel
+- 任务用 **XML 可配置** (config/mission_bt_square.xml, mission_bt_fault.xml)
+- 根节点 Selector = [ 任务序列, 应急降落 ] —— 任务失败自动切安全分支
+- 实测: 方形任务 4 航点全 SUCCESS, 起飞 3m→四边→自动降落 (logs/e10_bt_square.log, 截图 24)
+- 已知限制: 故障注入演示 (500m 不可达航点) 未稳定触发 FAILURE→应急分支,
+  多实例并行会互相干扰; 后续需单实例隔离与更严格的不可达判据
 **E11. 固定翼/VTOL 控制** — px4-ros2-interface-lib（官方新接口，注册自定义模式）
 **E12. sim2real** — 真机参数整定、安全框架、日志回放
 
