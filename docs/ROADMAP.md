@@ -75,12 +75,19 @@
   waypoint_mission 现要求重置计数器稳定 5s 才解锁
 - 用法: ros2 launch drone_sim point_lio.launch.py (栈需 walls + gz_x500_lidar_3d)
 
-**E6. 视觉惯性里程计** ⚠️ **集成完成/初始化受阻 (2026-11-26, Issue #6 保持 open)**
-- VINS-Fusion ROS2 Humble 版 (fanhong-li @8993f559) 编译成功 (补丁0017: Ceres 无 CUDA 固定 DENSE_SCHUR)
-- 输入链路验证: 相机 1280x960 rgb8 @26Hz (内参 fx=fy=539.94 与配置一致), IMU 250Hz (含重力 10.4)
-- body_T_cam0 外参按"光心系(右/下/前)←机体系(前/左/上)"推导, 相机装于 base_link 前上方 (0.12,0.03,0.242)
-- 特征跟踪正常 (~299 点), 画面纹理充足 (ORB 500 点)
-- **阻塞**: 单目视觉-惯性对齐反复失败 ("misalign visual structure with IMU"),
+**E6. 视觉惯性里程计** ⚠️ **阻塞 (2026-11-26 最终尝试后仍失败, Issue #6 保持 open)**
+- VINS-Fusion ROS2 Humble 版编译完成 (补丁0017), 输入链路全部验证正确:
+  相机 1280x960 rgb8 @26Hz (内参 fx=fy=539.94 与配置一致), IMU 250Hz (含重力 10.4m/s²)
+- 外参 body_T_cam0 按光心系←机体系推导; 特征跟踪正常 (300 点)
+- **6 轮尝试的失败模式**:
+  1. estimate_extrinsic=0/1 → 均报 "misalign visual structure with IMU" (视觉-惯性对齐失败)
+  2. 静态起飞 / 圆周激励 / 提高特征数(300) / 降低最小间距(10) / 加大视差阈值(15) → 仍对齐失败
+  3. **estimate_td=1 (在线时间偏移) → 直接崩溃**: OpenCV LK 金字塔断言失败
+     `prevPyr[level*lvlStep1].size() == nextPyr[level*lvlSt ep2].size()`
+- **结论**: 该 ROS2 移植版在 gz 合成图像 + 仿真 IMU 组合下无法完成单目视觉惯性初始化;
+  上游为 RealSense D435i 实机调校
+- **后续可行方向**: ① 双目配置(需第二路相机) ② 换 VINS-Mono 官方移植版
+  ③ 用 px4-ros2-interface 的 vehicle_visual_odometry 走外部里程计路线
   尝试 estimate_extrinsic=0/1、静态起飞/圆周激励均未进入 odometry 输出
 - 下一步: 试双目(加一路相机)/换 VINS-Mono 官方 ROS2 版/调 keyframe_parallax 与初始化窗口
 

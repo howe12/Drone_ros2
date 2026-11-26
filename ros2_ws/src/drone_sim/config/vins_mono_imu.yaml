@@ -39,7 +39,7 @@ flow_back: 1
 # 优化
 max_solver_time: 0.04
 max_num_iterations: 8
-keyframe_parallax: 10.0
+keyframe_parallax: 15.0
 
 # IMU 噪声 (仿真: 小噪声)
 acc_n: 0.08
