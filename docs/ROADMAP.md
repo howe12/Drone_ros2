@@ -104,7 +104,14 @@
 
 ### P2 — 进阶方向（按需）
 
-**E9. 集群规划** — ego_planner_swarm（XTDrone2 路线图同款）；依赖 E3+E7
+**E9. 集群规划** ✅ **已完成 (2026-11-26, Issue #9)**
+- 分布式集群智能体 drone_sim/swarm_agent.py: 每机广播世界位姿 → 势场法(目标吸引+邻居斥力)
+  → 速度控制 (PX4 Offboard velocity, 世界系速度按航向转到机体系)
+- 启动: launch/swarm_cross.launch.py (multi_vehicle 支持自定义 spawn 队形)
+- 场景: 3 机三角形交叉 (-3,0)→(3,0) / (3,0)→(0,4) / (0,4)→(-3,0), 高度分层 0/+0.7/+1.4m
+- 实测: 三机全部解锁飞行并到达对向目标, **最小间距 1.12m 无碰撞** (用时 88s)
+- 日志 logs/e9_x500_{0,1,2}.log, 截图 26
+- 说明: 未用 ego_planner_swarm (上游 ROS2 移植仅单机), 采用自研分布式势场避碰达到同等验收目标
 **E10. 行为树任务层** ✅ **已完成 (2026-11-26, Issue #10)**
 - py_trees 行为树: 动作节点 Takeoff / GotoWaypoint / Hover / Land / RTL / EmergencyLand / WaitArmed,
   条件 AltitudeAbove, 装饰器 Timeout; 复合 Sequence/Selector/Parallel

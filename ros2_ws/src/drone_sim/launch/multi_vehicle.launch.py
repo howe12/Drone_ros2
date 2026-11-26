@@ -20,6 +20,8 @@ def generate_launch_description():
     model_arg = DeclareLaunchArgument('model', default_value='gz_x500')
     px4_dir_arg = DeclareLaunchArgument(
         'px4_dir', default_value=os.path.expanduser('~/PX4-Autopilot'))
+    # E9: 自定义初始位置 "x,y;x,y;..." (空则用默认 i*2 一字排开)
+    spawn_arg = DeclareLaunchArgument('spawn', default_value='')
 
     xtd2_launch_share = FindPackageShare('xtd2_launch')
 
@@ -32,7 +34,7 @@ def generate_launch_description():
         cmd=['MicroXRCEAgent udp4 -p 8888'], output='screen',
         name='microxrceagent', shell=True)
 
-    ld = LaunchDescription([num_arg, world_arg, model_arg, px4_dir_arg,
+    ld = LaunchDescription([num_arg, world_arg, model_arg, px4_dir_arg, spawn_arg,
                             world_launch, agent])
 
     # num 是 launch 参数, 无法在 Python 层直接 range —— 用 OpaqueFunction
@@ -43,7 +45,14 @@ def generate_launch_description():
         model = context.launch_configurations['model']
         world = context.launch_configurations['world']
         px4_dir = context.launch_configurations['px4_dir']
+        spawn = context.launch_configurations.get('spawn', '')
         base = model[3:] if model.startswith('gz_') else model
+        pts = []
+        if spawn:
+            for item in spawn.split(';'):
+                if ',' in item:
+                    x, y = item.split(',')[:2]
+                    pts.append((float(x), float(y)))
         actions = []
         for i in range(n):
             actions.append(IncludeLaunchDescription(
@@ -56,7 +65,8 @@ def generate_launch_description():
                     'id': str(i),
                     'namespace': f'{base}_{i}',
                     'px4_dir': px4_dir,
-                    'x': str(i * 2.0), 'y': '0', 'z': '0',
+                    'x': str(pts[i][0] if i < len(pts) else i * 2.0),
+                    'y': str(pts[i][1] if i < len(pts) else 0.0), 'z': '0',
                     'roll': '0', 'pitch': '0', 'yaw': '0',
                 }.items()))
         return actions

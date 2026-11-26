@@ -36,6 +36,7 @@ setup(
             'vio_evaluator = drone_sim.vio_evaluator:main',
             'bt_mission = drone_sim.bt_mission:main',
             'vtol_demo = drone_sim.vtol_demo:main',
+            'swarm_agent = drone_sim.swarm_agent:main',
         ],
     },
 )
