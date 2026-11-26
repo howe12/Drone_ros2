@@ -1,0 +1,16 @@
+# PX4 安全/整定参数模板 (仿真对齐值 -> 实机按场地调整)
+GF_ACTION        2      # 地理围栏动作 2=返航
+GF_MAX_HOR_DIST  100    # 水平围栏 m
+GF_MAX_VER_DIST  120    # 垂直围栏 m
+COM_RC_LOSS_T    5      # 遥控失联超时 s
+NAV_RCL_ACT      2      # 失联动作 2=返航
+COM_LOW_BAT_ACT  2      # 低电量动作 2=返航
+COM_DISARM_PRFLT 10     # 未解锁自动上锁 s
+MPC_XY_VEL_MAX   8.0    # 最大水平速度 m/s
+MPC_Z_VEL_MAX_UP 3.0
+MPC_Z_VEL_MAX_DN 1.5
+MPC_XY_P         0.95
+MPC_ACC_HOR      5.0
+EKF2_HGT_MODE    0      # 0=气压 1=GPS 3=视觉
+EKF2_GPS_CHECK   21
+EKF2_EV_CTRL     15     # 外部视觉融合 (0=禁用)

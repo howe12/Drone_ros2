@@ -37,6 +37,7 @@ setup(
             'bt_mission = drone_sim.bt_mission:main',
             'vtol_demo = drone_sim.vtol_demo:main',
             'swarm_agent = drone_sim.swarm_agent:main',
+            'safety_supervisor = drone_sim.safety_supervisor:main',
         ],
     },
 )

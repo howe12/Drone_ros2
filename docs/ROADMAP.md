@@ -129,7 +129,14 @@
   多旋翼垂直起飞 18m → POSCTL+DO_VTOL_TRANSITION(4) → **固定翼前飞** (空速 1.7→95.9/31.9 m/s)
   → 30s 巡航 → DO_VTOL_TRANSITION(3) → 垂直降落, 全程自动
 - 日志 logs/e11_vtol.log, 截图 25; 关键: 必须先切 POSCTL 再发过渡命令, 否则 PX4 不执行
-**E12. sim2real** — 真机参数整定、安全框架、日志回放
+**E12. 实机部署 (sim2real)** 🟡 **仿真侧完成, Issue #12 保持 open (无真机)**
+- **安全框架** drone_sim/safety_supervisor.py: 地理围栏(半径/高度)/速度/倾角/外部急停
+  → 触发 RTL 或 LAND; 实测: max_radius=2.5m 时正确触发"超出水平围栏 3.1m -> RTL", 无误报
+  (倾角改用 vehicle_attitude 四元数计算, 不再用速度比近似)
+- **Sim2Real 指南** docs/SIM2REAL.md: 坐标系陷阱(ENU↔NED/机体系/光心系)、
+  PX4 参数整定流程、日志回放对比方法、sim2real 差距清单、实机前检查清单
+- **前置检查脚本** scripts/sim2real_check.sh: 9 项检查 + 生成 docs/px4_params_template.txt
+- 实机验证需硬件(真机 PX4/传感器标定/场地), 故 issue 保持 open
 
 ## 四、建议路线
 
