@@ -2,115 +2,377 @@
 
 > 难度 L0–L1 · 代码导读章 · 后续所有实验的地基
 
+## 本章问题
+
+第 1 章你已经让飞机飞起来了，用的是现成的 `offboard_demo`。但换一个任务（比如飞到指定点后悬停），就要自己写节点。本章解决三个问题：
+
+1. PX4 为什么愿意听一个外部程序的话，需要满足什么条件（Offboard 三要素）。
+2. 为什么课程要求所有 PX4 交互都走 `PX4Interface`，而不是自己建发布者。
+3. 怎么读懂 `offboard_demo` 的状态机，并照着写出自己的第一个任务节点。
+
+理解这三件事后，第 4 章的航点、第 9 章的避障、第 12 章的编队，都是同一个套路的扩展。
+
 ## 学习目标
 
-- 理解 PX4 Offboard 模式的三要素与 NED 坐标系
-- 掌握课程唯一控制入口 `PX4Interface`（为什么不允许自己建 publisher）
-- 读懂 `offboard_demo.py` 状态机，能改出自己的第一个任务
+| 维度 | 学习前 | 学习后 |
+|---|---|---|
+| Offboard 机制 | 以为发个位置指令飞机就会动 | 知道需要心跳、设定点、模式/解锁三个动作且顺序不能错 |
+| 坐标系 | 不明白 z 为什么是负的 | 能说清 NED 与 ENU 差异，知道 `alt()` 与 `pos.z` 的符号关系 |
+| 接口使用 | 自己 `create_publisher` 连 PX4 | 统一使用 `PX4Interface`，避开 QoS/解锁/坐标四类历史故障 |
+| 代码阅读 | 看不懂状态机 | 能照状态机改出"起飞—悬停—降落"节点 |
+| 排障 | 遇到"贴地爬行""连不上"无思路 | 能用 EKF 门控、QoS、命令路由解释并定位 |
 
-## 2.1 Offboard 三要素
+## 前置与回顾
 
-PX4 允许外部计算机（ROS2 节点）直接控制飞机，但有三条硬规则：
+第 1 章你已经：跑通整条链路、完成一次自动起降、用 `grade.py` 拿到 3/3 PASS。
 
-1. **心跳流**：`OffboardControlMode` 必须以 **>2Hz** 持续发布（课程用 10Hz），声明控制量类型（位置/速度/姿态…）
-2. **设定点流**：`TrajectorySetpoint` 持续发布目标；**切入 Offboard 前就要预流**，否则 PX4 拒绝
-3. **模式与解锁命令**：`VehicleCommand` 发 `DO_SET_MODE(176, param1=1, param2=6)` 切 Offboard，`ARM_DISARM(400, param1=1)` 解锁
+本章依赖这些产出：`ros2 topic list | grep fmu` 能看到话题；`ros2 topic echo /x500_0/fmu/out/vehicle_status --once` 能看到 `arming_state` 和 `nav_state`。如果这两步还不通，先回第 1 章排障。
 
-数据链路（第 1 章已跑通）：
+## 本章涉及的新概念
 
+| 术语 | 一句话解释 | 详细说明 |
+|---|---|---|
+| **Offboard 模式** | 由外部程序接管控制权的飞行模式 | 2.2 节 |
+| **心跳（Heartbeat）** | 持续发布的控制模式消息，证明"外部控制器还活着" | 2.2 节 |
+| **设定点（Setpoint）** | 你希望飞机达到的目标位置/速度 | 2.2 节 |
+| **预流（Pre-stream）** | 切 Offboard 前先持续发一段时间设定点 | 2.2 节 |
+| **NED 坐标系** | 北-东-地，z 向下为正；与 Gazebo 的 ENU 相反 | 2.3 节 |
+| **EKF** | PX4 内部的状态估计器，融合传感器算位置；原点可能被重置 | 2.4 节（门控） |
+| **QoS** | ROS2 的通信可靠性策略；发布/订阅两端必须兼容 | 2.5 节 |
+| **MAV_SYS_ID** | PX4 实例编号，多机时命令要发给对应编号（实例号+1） | 案例 4 / 第 12 章 |
+
+**阅读顺序建议**：先按第 1 节跑通最小节点并观察状态变化；再读第 2 节理解"为什么必须这样"；最后用第 3 节案例练排障。
+
+---
+
+## 1. 先让它动起来（最小路径）
+
+### 1.1 观察：飞机状态在飞行中如何变化
+
+先启动栈（第 1 章已会）：
+
+```bash
+bash scripts/run_simulation.sh xtd2
 ```
-ROS2 节点 --DDS话题--> MicroXRCEAgent(UDP 8888) <--uXRCE-DDS--> PX4 SITL <--> Gazebo
+
+新终端跑 `offboard_demo`，同时观察状态话题。开两个终端：
+
+终端 A（飞）：
+
+```bash
+source /opt/ros/humble/setup.bash
+source <仓库路径>/ros2_ws/install/setup.bash
+ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0 -p circle_duration:=0.0
 ```
 
-### NED 坐标系（新手第一坑）
+终端 B（看状态）：
 
-PX4 本地坐标是 **NED**（北-东-地）：**z 向下为正**。飞 5m 高 = `z = -5.0`。
-而 Gazebo 世界系是 ENU（z 向上）。课程接口提供 `enu_to_ned()` 换算；
-**精度验证一律用 gz 世界系真值**（第 16 章铁律三），因为 PX4 的 EKF 会重置局部原点。
+```bash
+ros2 topic echo /x500_0/fmu/out/vehicle_status --fields arming_state nav_state
+```
 
-## 2.2 为什么必须用 PX4Interface
+你会看到 `arming_state` 从 1（上锁）变 2（解锁），`nav_state` 变为 14（Offboard），最后 `arming_state` 回到 1（降落上锁）。
 
-课程早期 8 个节点各写一份 PX4 交互代码，造成过这些**真实故障**：
+<!-- SCREENSHOT_PLACEHOLDER
+id: shot-ch02-status-echo
+caption: 图 2.1 飞行中 vehicle_status 的 arming_state 与 nav_state 变化
+when: 终端 A 跑 offboard_demo 期间，终端 B 执行上面 echo 命令时
+what: 截取终端 B 输出，需能看到 arming_state 1→2→1 与 nav_state 变为 14 的过程
+how: |
+  ros2 topic echo /x500_0/fmu/out/vehicle_status --fields arming_state nav_state
+  在飞机起飞后截取终端输出
+-->
+![图 2.1 状态变化](images/PLACEHOLDER-shot-ch02-status-echo.png)
 
-| 故障 | 根因 |
-|---|---|
-| 多机时 2 号机无法解锁 | `target_system` 默认值不一致（必须 = MAV_SYS_ID = 实例号+1） |
-| 与 Point-LIO 连不上 / SHM 死锁 | QoS RELIABLE ↔ BEST_EFFORT 不匹配 |
-| 遇 GPS 漂移"贴地爬行" | 只有部分节点做 EKF 原点重置门控 |
-| 飞反、打转 | 坐标系各写各的 |
+### 1.2 动手：写一个自己的最小节点
 
-所以平台契约规定：**所有 PX4 交互走 `drone_sim/px4_interface.py`**（297 行，把坑全部固化）。
+目标：起飞到 3m，悬停一会儿后降落。用课程统一接口 `PX4Interface`，约 30 行。
 
-### 最小范式（约 30 行写一个任务节点）
+新建文件 `ros2_ws/src/drone_sim/drone_sim/hover_node.py`：
 
 ```python
 import rclpy
 from rclpy.node import Node
 from drone_sim.px4_interface import PX4Interface
 
-class MyMission(Node):
+class HoverNode(Node):
     def __init__(self):
-        super().__init__('my_mission')
+        super().__init__('hover_node')
         self.declare_parameter('target_system', 1)
         self.px4 = PX4Interface(
             self,
-            ns='/x500_0',                # 多机命名空间; 单机可 ''
+            ns='/x500_0',
             target_system=self.get_parameter('target_system').value,
         )
-        self.create_timer(0.1, self.loop)   # 10Hz, 必须 > 2Hz
+        self.create_timer(0.1, self.loop)   # 10Hz，必须 > 2Hz
 
     def loop(self):
-        self.px4.heartbeat_position(0.0, 0.0, -3.0, yaw=0.0)  # 心跳+设定点
+        # 心跳 + 设定点：每次循环都要发，不能只在起飞前发一次
+        self.px4.heartbeat_position(0.0, 0.0, -3.0, yaw=0.0)
         if not self.px4.ready:
             return
         if not (self.px4.armed and self.px4.offboard):
-            if self.px4.ekf_stable:         # EKF 稳定才解锁（门控固化）
+            if self.px4.ekf_stable:              # EKF 稳定才请求解锁
                 self.px4.request_offboard_and_arm()
             return
-        if abs(self.px4.alt() - 3.0) < 0.3:
+        if abs(self.px4.alt() - 3.0) < 0.3:      # 到 3m 后降落
             self.px4.land()
+
+def main(args=None):
+    rclpy.init(args=args)
+    rclpy.spin(HoverNode())
+
+if __name__ == '__main__':
+    main()
 ```
 
-### API 速查（完整表见[平台契约](PLATFORM_API.md)）
+在 `setup.py` 的 `console_scripts` 注册：
 
-| 成员 | 说明 |
-|---|---|
-| `ready` / `armed` / `offboard` | 状态就绪 / 已解锁 / Offboard 中 |
-| `ekf_stable` | EKF 重置计数器 5s 未变，**解锁前必须为真** |
-| `alt()` / `heading()` / `distance_to(x,y,z_up)` | 高度(向上正) / 航向 / 三维距离 |
-| `heartbeat_position(x,y,z_down,yaw)` | 位置模式心跳 |
-| `heartbeat_velocity(...)` / `heartbeat_hold()` | 速度模式 / 悬停 |
-| `request_offboard_and_arm()` / `land()` / `rtl()` | 常用动作 |
-| `vtol_transition_to_fw()` | VTOL 过渡（内部先切 POSCTL，坑已固化） |
-| `enu_to_ned()` / `body_to_world_vel()` | 坐标换算 |
-
-## 2.3 代码导读：offboard_demo 状态机
-
-`ros2_ws/src/drone_sim/drone_sim/offboard_demo.py`：
-
+```python
+'hover_node = drone_sim.hover_node:main',
 ```
-INIT ──(预流2s + ekf_stable)──> 请求Offboard+解锁
-  │ 已解锁且Offboard
+
+重新编译并运行：
+
+```bash
+cd ros2_ws && colcon build --symlink-install --packages-select drone_sim
+source install/setup.bash
+ros2 run drone_sim hover_node --ros-args -p target_system:=1
+```
+
+**注意**：编译终端只 source humble，不要 source 本工作空间（否则报 override 警告，见第 1 章）。
+
+---
+
+## 2. 刚才发生了什么（回头理解原理）
+
+### 2.1 Offboard 是什么
+
+Offboard 是 PX4 的一种飞行模式：控制权从遥控/飞控内部逻辑，交给外部程序（你的 ROS2 节点）。
+
+但 PX4 不轻信外部程序，它要求三个动作，且**顺序不能颠倒**：
+
+| 动作 | 对应话题/命令 | 要求 |
+|---|---|---|
+| 1 心跳 | `OffboardControlMode` | 持续发布，> 2Hz（课程用 10Hz） |
+| 2 设定点 | `TrajectorySetpoint` | 持续发布目标；**切 Offboard 前就要预流** |
+| 3 模式+解锁 | `VehicleCommand` | `DO_SET_MODE(176, param1=1, param2=6)` 切 Offboard；`ARM_DISARM(400, param1=1)` 解锁 |
+
+<!-- IMAGE_PLACEHOLDER
+id: fig-ch02-offboard-loop
+caption: 图 2.2 Offboard 控制闭环：节点、MicroXRCEAgent、PX4、Gazebo 之间的消息方向与三要素
+alt: Offboard 控制闭环图，ROS2 节点发布 OffboardControlMode 与 TrajectorySetpoint 经 Agent 到 PX4，PX4 返回 vehicle_status 与 vehicle_local_position，PX4 再驱动 Gazebo 中模型
+prompt: |
+  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。
+  左侧 "ROS2 节点（你的任务程序）"，中间 "MicroXRCEAgent（UDP 8888）"，右侧 "PX4 SITL"，下方 "Gazebo（物理世界）"。
+  从节点到 PX4 两条向右箭头，分别标 "OffboardControlMode（心跳, 10Hz）" 与 "TrajectorySetpoint（目标）"，再一条标 "VehicleCommand（切 Offboard / 解锁）"；
+  从 PX4 到节点两条向左箭头，标 "vehicle_status（arming_state / nav_state）" 与 "vehicle_local_position（x/y/z）"；
+  PX4 与 Gazebo 之间双向箭头标 "传感器数据 / 电机指令"。
+  在节点旁用编号 1/2/3 标出三个动作顺序，并注明"预流 → 请求 Offboard → 解锁"。圆角矩形，蓝灰配色。
+-->
+![图 2.2 Offboard 控制闭环](images/PLACEHOLDER-fig-ch02-offboard-loop.png)
+
+**为什么必须先预流？** 如果先发切模式命令、之后才开始发设定点，PX4 会发现"外部控制器没有持续给目标"，判定不安全，拒绝切换或触发 Offboard loss failsafe（掉线保护）。所以 `offboard_demo` 里有一句 `if self.tick > 20`——以 10Hz 计，就是先流满 2 秒。
+
+### 2.2 NED 坐标系：为什么 z 是负的
+
+PX4 本地坐标是 **NED**（North-East-Down，北-东-地）：**z 向下为正**。
+
+- 飞 5m 高：PX4 侧写作 `z = -5.0`
+- Gazebo 世界系是 **ENU**（东-北-上）：z 向上为正
+
+两者 z 符号相反、x/y 轴也互换，转换用接口提供的 `enu_to_ned()`。
+
+接口里的两个易混字段：
+
+| 写法 | 含义 | 符号 |
+|---|---|---|
+| `pos.z` | PX4 局部坐标原始值 | 向下为正，起飞后为负 |
+| `alt()` | 接口计算的高度 | **向上为正**，起飞后为正数 |
+
+所以判断高度用 `alt()`，不要用 `pos.z` 直接比大小。
+
+<!-- IMAGE_PLACEHOLDER
+id: fig-ch02-coordinates
+caption: 图 2.3 NED 与 ENU 坐标系对比：轴向与 z 符号差异
+alt: 坐标系对比图，左为 PX4 NED（x 北、y 东、z 向下为正），右为 Gazebo ENU（x 东、y 北、z 向上为正），标出同一高度在两系下 z 值符号相反
+prompt: |
+  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。
+  左右并排两个三维坐标轴：
+  左侧标题 "PX4 局部坐标系 NED"，x 轴指北标 "x（北）"，y 轴指东标 "y（东）"，z 轴向下标 "z（向下为正）"，在 z 轴上方 5m 处画一个小四旋翼，旁标注 "高度 5m → z = -5.0"；
+  右侧标题 "Gazebo 世界坐标系 ENU"，x 轴指东标 "x（东）"，y 轴指北标 "y（北）"，z 轴向上标 "z（向上为正）"，同样位置标 "高度 5m → z = +5.0"。
+  两图之间画双向箭头标 "enu_to_ned() 转换"。配色蓝灰，轴向标注清晰。
+-->
+![图 2.3 坐标系对比](images/PLACEHOLDER-fig-ch02-coordinates.png)
+
+### 2.3 为什么必须用 PX4Interface
+
+课程早期 8 个节点各写一份 PX4 交互代码，造成过这些**真实故障**：
+
+| 故障 | 根因 | 接口如何避免 |
+|---|---|---|
+| 多机 2 号机无法解锁 | `target_system` 默认值不一致 | 构造时传入，命令自动带正确编号 |
+| 与 Point-LIO 连不上 / SHM 死锁 | QoS RELIABLE ↔ BEST_EFFORT 不匹配 | 发布端固定 BEST_EFFORT+VOLATILE |
+| 遇 GPS 漂移"贴地爬行" | 只有部分节点做 EKF 原点门控 | 统一 `ekf_stable` 门控（计数器稳定 5s） |
+| 飞反、打转 | 坐标系各写各的 | 提供 `enu_to_ned()` / `body_to_world_vel()` |
+
+所以平台契约规定：**所有 PX4 交互走 `drone_sim/px4_interface.py`**（297 行，坑已固化）。
+
+### 2.4 EKF 原点重置与门控
+
+PX4 的 EKF 会融合传感器估计位置。当 GPS 漂移等原因触发时，它会**重置局部原点**（`xy_reset_counter` / `z_reset_counter` 跳变）。后果：
+
+- 局部坐标发生"瞬移"，同一物理位置对应的 x/y/z 变了；
+- 若任务用局部 z 判断"已起飞"，会误判，导致**贴地爬行**（E5 实验中实测）。
+
+接口的对策是 `ekf_stable`：重置计数器 5 秒（10Hz × 50 拍）未变才返回真，且 `request_offboard_and_arm()` 默认只在它为真的情况下解锁。
+
+### 2.5 QoS：发布与订阅两端要匹配
+
+ROS2 的 QoS（服务质量策略）决定消息如何传递。课程里两套预设（见 `px4_interface.py` 第 66–80 行）：
+
+| 用途 | 预设 | 设置 |
+|---|---|---|
+| 发布端（发给 PX4） | `QOS_PUB` | BEST_EFFORT + VOLATILE |
+| 订阅端（收 PX4 状态） | `QOS_SUB` | BEST_EFFORT + TRANSIENT_LOCAL |
+
+**不匹配会怎样**：发布端若用默认 RELIABLE，在 FastDDS 共享内存流控上可能**无限阻塞**——表现是节点 CPU 冻结、10Hz 心跳停发、飞机失去控制（这是本课程真实的死锁事故，已固化进接口）。
+
+订阅端若用默认 RELIABLE 而 PX4 侧是 BEST_EFFORT，会**静默收不到数据**（不报错），比报错更难查。
+
+---
+
+## 3. 扩展：案例与排障
+
+### 案例 1：状态机如何保证失败安全
+
+`offboard_demo` 的状态转移（读 `offboard_demo.py`）：
+
+```text
+INIT ──(预流 2s + ekf_stable)──> 请求 Offboard + 解锁
+  │ 已解锁且 Offboard
   ▼
-TAKEOFF ──(|alt-目标|<0.3)──> CIRCLE ──(计时到)──> LAND ──(上锁)──> DONE
-  └────── 丢失Offboard/解锁 → 回 INIT 重来（失败安全）
+TAKEOFF ──(|alt - 目标| < 0.3)──> CIRCLE ──(计时到)──> LAND ──(上锁)──> DONE
+  └────── 丢失 Offboard/解锁 → 回 INIT 重来
 ```
+
+<!-- IMAGE_PLACEHOLDER
+id: fig-ch02-state-machine
+caption: 图 2.4 offboard_demo 状态机：五个状态与转移条件
+alt: 状态机图，INIT 经预流与 EKF 稳定后请求解锁进入 TAKEOFF，到目标高度进 CIRCLE，计时结束进 LAND，上锁后 DONE；任一状态丢失 Offboard 或解锁则回 INIT
+prompt: |
+  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。
+  横向五个圆角矩形状态框，依次："INIT"、"TAKEOFF"、"CIRCLE"、"LAND"、"DONE"，之间用箭头连接。
+  箭头上标注转移条件：
+  INIT→TAKEOFF 标 "预流 2s + ekf_stable，已解锁且 Offboard"；
+  TAKEOFF→CIRCLE 标 "|alt - 目标| < 0.3"；
+  CIRCLE→LAND 标 "画圆计时结束"；
+  LAND→DONE 标 "已上锁（arming_state=1）"。
+  从 TAKEOFF、CIRCLE 向下画虚线回到 INIT，标 "丢失 Offboard / 解锁 → 回 INIT"。
+  配色蓝灰，转移条件文字清晰。
+-->
+![图 2.4 状态机](images/PLACEHOLDER-fig-ch02-state-machine.png)
 
 要点：
-- 每个状态都先检查 `armed and offboard`，掉了就回 INIT——**失败安全**而不是继续盲飞
-- 降落判定用**上锁状态**而非 z 阈值（x500 出生点有偏移，地面 z≈-0.85 而非 0，z 阈值会误判）
-- 画圆：`x=r·cos(θ), y=r·sin(θ), yaw=θ+π/2`（机头沿切线）
 
-## 2.4 故障实验室（本章素材）
+- 每个状态开头都检查 `armed and offboard`，掉了就回 INIT——**失败安全**，而不是继续盲飞；
+- 降落判定用**上锁状态**而非 z 阈值（x500 出生点偏移，地面 z≈-0.85 而非 0，用 z 会误判）；
+- 画圆用 `x=r·cos(θ), y=r·sin(θ), yaw=θ+π/2`（机头沿切线）。
 
-1. **QoS 死锁**：把发布端改回默认 RELIABLE，节点会在 FastDDS SHM 流控上无限阻塞（CPU 冻结、10Hz 心跳停发）。修复：BEST_EFFORT。
-2. **EKF 原点重置**：GPS 漂移时 `xy_reset_counter` 跳变，局部坐标"瞬移"。若任务用局部 z 判断"已起飞"，会误判贴地爬行。修复：`ekf_stable` 门控 + 世界系真值。
-3. **未预流就切 Offboard**：PX4 直接拒绝。修复：先流 2s 再发模式命令。
+### 案例 2：QoS 死锁复现（本章的"刺"）
 
-## 练习
+**背景**：想验证"发布端 RELIABLE 会死锁"这一说法，亲手复现。
 
-1. 用最小范式写一个 `hover_node`：起飞 3m 悬停 10s 后降落（不许抄状态机，体会接口）。
-2. 把 `offboard_demo` 的圆改成半径 5m、角速度 0.5，预测耗时并验证。
-3. 思考：为什么 `target_system` 在多机时必须等于实例号+1？（提示：MAVLink 路由）
+**做法**：临时把 `px4_interface.py` 里 `QOS_PUB` 的 `reliability` 改成 `RELIABLE`，重编后运行节点。
 
-[上一章](course/01-setup.md) · [下一章：传感器话题桥接 →](course/03-sensors.md)
+**现象**：
+
+- 节点进程仍在，但 CPU 时间不再增长（`ps -o time -p <pid>` 观察）；
+- 10Hz 心跳停发，飞机失去控制或触发保护；
+- 不报明显异常，容易误判为"仿真卡了"。
+
+<!-- SCREENSHOT_PLACEHOLDER
+id: shot-ch02-qos-deadlock
+caption: 图 2.5 QoS 死锁现象：节点 CPU 时间冻结、心跳停止
+when: 把 QOS_PUB 改为 RELIABLE 重编后运行节点，观察 ps -o time 不再增长时
+what: 截取终端，需能看到 ps -o time 两次查看值相同（CPU 冻结），或节点日志中心跳停止
+how: |
+  ps -o time -p <节点pid>; sleep 5; ps -o time -p <节点pid>   # 两次值相同即冻结
+  截取终端输出
+-->
+![图 2.5 QoS 死锁现象](images/PLACEHOLDER-shot-ch02-qos-deadlock.png)
+
+**修复**：改回 `BEST_EFFORT`。接口的 `QOS_PUB` 已固化正确配置。
+
+### 案例 3：EKF 原点重置导致"贴地爬行"
+
+**背景**：E5 实验中，飞机不爬升而是贴着地面移动。
+
+**现象与原因**：
+
+- EKF 重置后局部 z 原点跳变，任务里"z < -1 表示已起飞"的判断失效；
+- 飞机以为自己已在空中，实际还在地面，于是沿地面"爬行"。
+
+**对策**：使用 `ekf_stable` 门控（已固化），并且**位置/精度判定优先用 Gazebo 世界系真值**（第 16 章铁律三）。
+
+### 案例 4：多机时 target_system 必须匹配
+
+**背景**：第 12 章双机编队时，2 号机不解锁。
+
+**原因**：MAVLink 命令按 `MAV_SYS_ID` 路由。第 N 架飞机的 SYS_ID 是 N+1，命令里的 `target_system` 写错（例如都写 1），命令会被 1 号机吃掉，2 号机收不到。
+
+**对策**：`PX4Interface` 构造时传入正确的 `target_system`；第 12 章详述。
+
+---
+
+## 任务卡
+
+### 任务卡 1：用最小范式写 hover_node
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 起飞到 3m，悬停后自动降落，日志出现降落/上锁 |
+| 2 通信骨架/前置 | 栈已启动；用 `PX4Interface(ns='/x500_0', target_system=1)`；10Hz 定时器 |
+| 3 参考 prompt | "用 drone_sim 的 PX4Interface 写一个 ROS2 节点：起飞到 3m 后降落。要求：只用 heartbeat_position、request_offboard_and_arm、land、alt、ekf_stable，10Hz 定时器，先给完整可运行代码，中文注释，不要讲理论。" |
+| 4 执行步骤 | ① 新建 `hover_node.py` ② 在 `setup.py` 注册 ③ `colcon build --packages-select drone_sim` ④ `ros2 run drone_sim hover_node` ⑤ 另开终端 echo `vehicle_status` 观察 |
+| 5 验收标准 | □ 飞机爬升到约 3m（终端 B 中 `arming_state` 1→2）□ 自动降落并上锁 □ 未出现"等待 PX4 状态" |
+| 6 原理 + 扩学 | 教**Offboard 三要素与统一接口**。扩学：把悬停改成"到 3m 后前进 5m 再降落" |
+
+### 任务卡 2：坐标符号验证
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 证明 `pos.z` 与 `alt()` 符号相反，并解释 |
+| 2 通信骨架/前置 | 订阅 `/x500_0/fmu/out/vehicle_local_position`；接口 `alt()` |
+| 3 参考 prompt | "PX4 NED 坐标系里 pos.z 向下为正，接口 alt() 向上为正。给我一段代码：在节点里同时打印 pos.z 与 alt()，并说明起飞 5m 时两者分别是什么值。" |
+| 4 执行步骤 | ① 在 `hover_node` 的 loop 里加一行日志 ② 重编运行 ③ 记录起飞后的两个值 |
+| 5 验收标准 | □ 能说出起飞 5m 时 `pos.z ≈ -5`、`alt() ≈ 5` □ 能解释 NED 与 ENU 的 z 方向差异 |
+| 6 原理 + 扩学 | 教**坐标系符号**。扩学：用 `enu_to_ned()` 把 Gazebo 世界系目标转成 PX4 设定点 |
+
+### 任务卡 3：故障注入——QoS 死锁
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 复现 RELIABLE 发布端死锁并修复 |
+| 2 通信骨架/前置 | 备份 `px4_interface.py`，改 `QOS_PUB.reliability = RELIABLE` |
+| 3 参考 prompt | "我的 ROS2 节点进程还在但 CPU 不增长、也不发消息，怀疑 FastDDS SHM 流控阻塞。请给出用 ps 观察 CPU 时间、以及检查 QoS 配置是否匹配的命令。" |
+| 4 执行步骤 | ① 改 QoS 重编 ② 运行节点 ③ `ps -o time -p <pid>` 两次对比 ④ 改回 BEST_EFFORT 重编验证恢复 |
+| 5 验收标准 | □ 能复现 CPU 冻结 □ 能说明发布端与订阅端 QoS 应分别是什么 □ 改回后节点正常飞行 |
+| 6 原理 + 扩学 | 教**QoS 匹配**。扩学：检查一个订阅端若用默认 RELIABLE 会怎样（静默收不到） |
+
+## ✅ 检查清单
+
+- [ ] 我能说出 Offboard 的三个动作及正确顺序
+- [ ] 我能解释为什么切 Offboard 前必须先预流设定点
+- [ ] 我能说清 NED 的 z 符号，以及 `pos.z` 与 `alt()` 的区别
+- [ ] 我能用 `PX4Interface` 写出起飞—悬停—降落节点并跑通
+- [ ] 我能解释 `ekf_stable` 门控在防"贴地爬行"中的作用
+- [ ] 我能复现并修复 QoS RELIABLE 导致的死锁
+
+## 小结与下一步
+
+本章把第 1 章"会用"推进到"会写"：Offboard 三要素、NED 坐标、统一接口与两类典型故障（QoS 死锁、EKF 原点重置）都已在代码层面固化。
+
+现在你能控制单机按自己的逻辑飞。但真正的任务往往需要**多个航点**和轨迹可视化，也需要把状态机变成可配置的描述，而不是硬编码——这是第 3、4 章的内容（传感器与航点任务）。
+
+[下一章：传感器话题桥接 →](course/03-sensors.md)
