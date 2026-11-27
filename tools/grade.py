@@ -53,7 +53,14 @@ class Proc:
         self.log = open(log_path, 'w')
         env = dict(os.environ)
         env.setdefault('DISPLAY', ':0')          # 仿真需要 X (GUI 渲染传感器)
-        env.setdefault('PATH', '/usr/bin:' + env.get('PATH', ''))
+        # MicroXRCEAgent 在 ~/.local/bin; 缺了它 run_simulation.sh 会 exit 127
+        home_bin = os.path.expanduser('~/.local/bin')
+        if home_bin not in env.get('PATH', ''):
+            env['PATH'] = f"{home_bin}:/usr/bin:" + env.get('PATH', '')
+        # MicroXRCEAgent 动态库路径 (缺了会 exit 127: libmicroxrcedds_agent.so.3.0 not found)
+        home_lib = os.path.expanduser('~/.local/lib')
+        if home_lib not in env.get('LD_LIBRARY_PATH', ''):
+            env['LD_LIBRARY_PATH'] = f"{home_lib}:" + env.get('LD_LIBRARY_PATH', '')
         self.p = subprocess.Popen(cmd, shell=True, stdout=self.log,
                                   stderr=subprocess.STDOUT, env=env,
                                   start_new_session=True, cwd=ROOT)
@@ -103,6 +110,19 @@ def ensure_rclpy():
         rclpy.init(args=None)
         _RCLPY['ready'] = True
     return rclpy
+
+
+def cleanup_stale():
+    """杀掉上一轮可能残留的仿真进程 (DDS 端口/共享内存占用会让新栈起不来)。
+    用 pkill -x 精确进程名匹配, 不会误伤 python 自身。
+    """
+    for name in ('gz', 'MicroXRCEAgent', 'px4'):
+        try:
+            subprocess.run(['pkill', '-9', '-x', name],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        except Exception:
+            pass
+    time.sleep(3)
 
 
 def wait_for_status(ns='/x500_0', timeout=180):
@@ -184,9 +204,24 @@ class Sampler:
             except Exception:
                 break
 
+    def wait_ready(self, timeout=180):
+        """等待首个命名空间收到 PX4 状态。主线程只轮询, 不 spin
+        (并发 spin 同一个 context 会把采样线程打挂, 实测 pose/status 全为 0)。"""
+        t0 = time.time()
+        first = next(iter(self.arms))
+        while time.time() - t0 < timeout:
+            if len(self.arms[first]) > 0:
+                return True
+            time.sleep(2)
+        return False
+
     def stop(self):
         self._stop = True
-        time.sleep(0.3)
+        # 必须先等采样线程退出 spin_once, 再销毁节点 —— 否则死锁, 进程卡死不退出
+        try:
+            self._th.join(timeout=3.0)
+        except Exception:
+            pass
         try:
             self.node.destroy_node()
         except Exception:
@@ -216,8 +251,18 @@ class Ctx:
         return [p for p in self.s.vel[ns] if p[0] >= self.t_start]
 
     def logtext(self):
+        """读取节点日志。部分节点把详细信息写进自己的 log_file (不是 stdout),
+        因此场景可用 node_log_file 指定; 支持 {RUN_LOG} 占位符 (与命令中的同名占位对应)。
+        """
+        path = self.sc.get('node_log_file')
+        if path:
+            path = path.replace('{RUN_LOG}', self.node_log)
+            if not os.path.isabs(path):
+                path = os.path.join(ROOT, path)
+        else:
+            path = self.node_log
         try:
-            with open(self.node_log, errors='ignore') as f:
+            with open(path, errors='ignore') as f:
                 return f.read()
         except OSError:
             return ''
@@ -241,6 +286,15 @@ def probe_takeoff(ctx, target_alt=5.0):
             '结束状态': ctx.disarmed_at_end()}
 
 
+def load_mission_waypoints(mission='square'):
+    """从 config/mission_<name>.yaml 读航点 (NED, z 向上为负)"""
+    import yaml
+    path = os.path.join(ROOT, f'ros2_ws/src/drone_sim/config/mission_{mission}.yaml')
+    with open(path) as f:
+        cfg = yaml.safe_load(f)
+    return [(float(w['x']), float(w['y']), float(w.get('z', -5.0))) for w in cfg['waypoints']]
+
+
 @probe('ctrl.waypoint_square')
 def probe_waypoint(ctx, tol=0.5, mission='square'):
     ps = ctx.poses()
@@ -248,7 +302,8 @@ def probe_waypoint(ctx, tol=0.5, mission='square'):
     if not ps:
         return {'到点误差': 99.0, '命中航点数': 0, '结束状态': 0}
     errs, hits = [], 0
-    for (wx, wy, wz) in wps:
+    for (wx, wy, wz_ned) in wps:
+        wz = -wz_ned          # 任务 yaml 用 NED(z 向下为负); gz 位姿是 ENU(z 向上为正)
         d = min(((px - wx) ** 2 + (py - wy) ** 2 + (pz - wz) ** 2) ** 0.5
                 for (_, px, py, pz) in ps)
         errs.append(d)
@@ -364,18 +419,30 @@ def probe_swarm(ctx):
 
 @probe('mission.behavior_tree')
 def probe_bt(ctx):
+    """根节点结果来自日志; 到达航点数来自真实位姿 (比数日志字样可靠)"""
     log = ctx.logtext()
     ok = 1 if '任务结束: SUCCESS' in log else 0
-    wps_ok = 1 if (ok and log.count('SUCCESS') >= 3) else 0
-    return {'根节点状态': ok, '航点节点': wps_ok, '结束状态': ctx.disarmed_at_end()}
+    ps = ctx.poses()
+    hits = 0
+    if ps:
+        try:
+            for (wx, wy, wz_ned) in load_mission_waypoints('square'):
+                wz = -wz_ned
+                d = min(((px - wx) ** 2 + (py - wy) ** 2 + (pz - wz) ** 2) ** 0.5
+                        for (_, px, py, pz) in ps)
+                if d < 0.6:
+                    hits += 1
+        except OSError:
+            pass
+    return {'根节点状态': ok, '到达航点数': hits, '结束状态': ctx.disarmed_at_end()}
 
 
 @probe('vtol.transition')
 def probe_vtol(ctx):
+    """standard_vtol 没有 gz pose 桥接 -> 高度与速度都取 PX4 本地数据"""
     vs = ctx.vel()
-    ps = ctx.poses()
     hmax = max((((vx * vx + vy * vy) ** 0.5) for (_, vx, vy, _, _) in vs), default=0.0)
-    alt = max((z for (_, _, _, z) in ps), default=0.0)
+    alt = max((z for (_, _, _, _, z) in vs), default=0.0)
     return {'固定翼段空速': round(hmax, 1),
             '垂直起飞高度': round(alt, 1),
             '结束状态': ctx.disarmed_at_end()}
@@ -422,6 +489,7 @@ def run_scenario(sc, runs, platform='xtd2'):
 
     for r in range(runs):
         print(f'\n=== 第 {r + 1}/{runs} 次: {sid} ===')
+        cleanup_stale()      # 上一轮残留会占用 DDS 端口/共享内存, 必须先清
         # 轮转仿真日志: capped_log.sh 达到上限后不再写入, 必须每次从空开始
         try:
             if os.path.exists(SIM_LOG) and os.path.getsize(SIM_LOG) > 1024 * 1024:
@@ -436,24 +504,34 @@ def run_scenario(sc, runs, platform='xtd2'):
             f'{OUT_DIR}/{sid}_run{r}_stack.log')
         procs = []
         try:
-            ready = wait_for_status(namespaces[0], timeout=180) or wait_px4_ready(offset=base, timeout=30)
+            # 采样器尽早创建: 它是**唯一** spin 方, 主线程只轮询
+            sampler = Sampler(namespaces=namespaces, odom_topics=odom_topics)
+            ready = sampler.wait_ready(180)
             if not ready and not own_stack:
-                print('  ✗ 等 PX4 就绪失败 (状态话题无数据且日志无 Ready)')
+                print('  ⟳ 首次未就绪, 清理残留后重试一次 ...')
+                cleanup_stale()
+                if stack is not None:
+                    stack.kill()
+                base = log_size(SIM_LOG)
+                stack = Proc(f'bash scripts/run_simulation.sh {platform} {model} {world}',
+                             f'{OUT_DIR}/{sid}_run{r}_stack_retry.log')
+                ready = sampler.wait_ready(180)
+            if not ready and not own_stack:
+                print('  ✗ 等 PX4 就绪失败 (状态话题无数据)')
+                sampler.stop()
                 results.append({'ok': False, 'metrics': {}})
                 continue
 
-            sampler = Sampler(namespaces=namespaces, odom_topics=odom_topics)
-            time.sleep(1)
-
             # 场景命令: 逐行启动 (每行一个独立进程), 剥离 run_simulation.sh 行与续行符
-            cmds = [ln.strip() for ln in sc['command'].strip().splitlines()
+            cmds = [ln.strip().replace('{RUN_LOG}', f'{OUT_DIR}/{sid}_run{r}_node0.log')
+                    for ln in sc['command'].strip().splitlines()
                     if ln.strip() and 'run_simulation.sh' not in ln]
             if own_stack:
                 t_start = time.time()
                 # 第一条命令负责起整套仿真, 必须等它就绪后再起其余节点
                 procs.append(Proc(cmds[0].rstrip('\\').strip(),
                                   f'{OUT_DIR}/{sid}_run{r}_node0.log'))
-                if not wait_for_status(namespaces[0], timeout=240):
+                if not sampler.wait_ready(240):
                     print('  ✗ 自起栈未能就绪 (第一条命令未拉起 PX4)')
                     sampler.stop()
                     results.append({'ok': False, 'metrics': {}})
@@ -464,11 +542,6 @@ def run_scenario(sc, runs, platform='xtd2'):
                                       f'{OUT_DIR}/{sid}_run{r}_node{i}.log'))
                     time.sleep(3)
             else:
-                if not ready:
-                    print('  ✗ 等 PX4 就绪失败')
-                    sampler.stop()
-                    results.append({'ok': False, 'metrics': {}})
-                    continue
                 print('  PX4 就绪')
                 t_start = time.time()
                 for i, c in enumerate(cmds):
@@ -480,8 +553,10 @@ def run_scenario(sc, runs, platform='xtd2'):
 
             n_pose = sum(len([1 for p in sampler.poses[n] if p[0] >= t_start]) for n in namespaces)
             n_arm = sum(len([1 for p in sampler.arms[n] if p[0] >= t_start]) for n in namespaces)
-            if n_pose < 10 or n_arm < 2:
-                print(f'  ✗ 采样不足 (pose={n_pose}, status={n_arm}) —— 判为本次运行失败')
+            n_vel = sum(len([1 for p in sampler.vel[n] if p[0] >= t_start]) for n in namespaces)
+            # 部分机型(如 standard_vtol)没有 gz pose 桥接, 只要有 PX4 速度数据即可
+            if (n_pose < 10 and n_vel < 50) or n_arm < 2:
+                print(f'  ✗ 采样不足 (pose={n_pose}, vel={n_vel}, status={n_arm}) —— 判为本次运行失败')
                 results.append({'ok': False, 'metrics': {}})
                 continue
             zs = [p[3] for n in namespaces for p in sampler.poses[n] if p[0] >= t_start]
@@ -533,7 +608,14 @@ def evaluate(sc, agg):
         thr = str(m['threshold']).strip()
         ok, note = None, ''
         try:
-            if thr.startswith('<'):
+            # 注意顺序: 两字符运算符必须先判断, 否则 '>=' 会被 '(' >' 吃掉
+            if thr.startswith('>='):
+                ok = med >= float(thr[2:].strip())
+            elif thr.startswith('<='):
+                ok = med <= float(thr[2:].strip())
+            elif thr.startswith('=='):
+                ok = abs(med - float(thr[2:].strip())) < 1e-9
+            elif thr.startswith('<'):
                 ok = med < float(thr[1:].strip())
             elif thr.startswith('>'):
                 ok = med > float(thr[1:].strip())

@@ -14,6 +14,10 @@ source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1091
 source "$ROOT/ros2_ws/install/setup.bash"
 
+# MicroXRCEAgent 安装在 ~/.local/bin (用户级 pip), 缺了它仿真栈会 exit 127
+export PATH="$HOME/.local/bin:/usr/bin:$PATH"
+# MicroXRCEAgent 动态库在 ~/.local/lib (缺了会报 libmicroxrcedds_agent.so.3.0 not found)
+export LD_LIBRARY_PATH="$HOME/.local/lib:${LD_LIBRARY_PATH:-}"
 export DISPLAY="${DISPLAY:-:0}"
 mkdir -p "$ROOT/logs/grade"
-exec /usr/bin/python3 "$ROOT/tools/grade.py" "$@"
+exec /usr/bin/python3 -u "$ROOT/tools/grade.py" "$@"   # -u: 无缓冲便于看进度

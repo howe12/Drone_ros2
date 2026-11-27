@@ -110,9 +110,10 @@ scenarios:
     world: aruco
     stack: auto
     namespaces: ['/x500_mono_cam_down_0']
-    duration: 110
+    node_log_file: '{RUN_LOG}.nodelog'
+    duration: 150
     command: |
-      ros2 run drone_sim aruco_precision_landing --ros-args -p camera_ns:=/x500_mono_cam_down_0
+      ros2 run drone_sim aruco_precision_landing --ros-args -p camera_ns:=/x500_mono_cam_down_0 -p log_file:={RUN_LOG}.nodelog
     metrics:
       - {name: 落点偏差, threshold: '< 0.15', unit: m, how: '结束时水平位置与靶标(世界原点)距离'}
       - {name: 最终对齐, threshold: '>= 1', unit: '-', how: '日志出现"最终对齐完成/统计居中达标"'}
@@ -130,9 +131,10 @@ scenarios:
     stack: auto
     namespaces: ['/x500_lidar_3d_0']
     odom_topics: {lio: /odom}
-    duration: 80
+    duration: 100
     command: |
       ros2 launch drone_sim point_lio.launch.py
+      ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_lidar_3d_0 mission:=square speed:=1.0
     metrics:
       - {name: 高度误差, threshold: '< 0.2', unit: m, how: 'LIO z 与 gz 真值 z 的中位偏差'}
       - {name: 里程计频率, threshold: '> 5', unit: Hz, how: 'odom 消息数/时长'}
@@ -170,12 +172,13 @@ scenarios:
     world: aruco
     stack: auto
     namespaces: ['/x500_0']
+    node_log_file: '{RUN_LOG}.nodelog'
     duration: 90
     command: |
-      ros2 run drone_sim bt_mission --ros-args -p px4_ns:=/x500_0 -p mission_xml:=$(ros2 pkg prefix drone_sim)/share/drone_sim/config/mission_bt_square.xml
+      ros2 run drone_sim bt_mission --ros-args -p px4_ns:=/x500_0 -p log_file:={RUN_LOG}.nodelog -p mission_xml:=$(ros2 pkg prefix drone_sim)/share/drone_sim/config/mission_bt_square.xml
     metrics:
       - {name: 根节点状态, threshold: '>= 1', unit: '-', how: '日志出现"任务结束: SUCCESS"'}
-      - {name: 航点节点, threshold: '>= 1', unit: '-', how: '日志中 SUCCESS 出现 >=3 次'}
+      - {name: 到达航点数, threshold: '>= 3', unit: 个, how: '位姿进入航点 0.6m 内的个数'}
       - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
     evidence: logs/e10_bt_square.log, screenshots/24_e10_bt_mission.png
     pitfalls: [py_trees装饰器反复initialise, 多实例并行互相干扰, 容差过紧]
@@ -188,9 +191,10 @@ scenarios:
     world: walls
     stack: auto
     namespaces: ['/x500_0']
+    node_log_file: '{RUN_LOG}.nodelog'
     duration: 75
     command: |
-      ros2 run drone_sim safety_supervisor --ros-args -p px4_ns:=/x500_0 -p max_radius:=2.5
+      ros2 run drone_sim safety_supervisor --ros-args -p px4_ns:=/x500_0 -p max_radius:=2.5 -p log_file:={RUN_LOG}.nodelog
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
     metrics:
       - {name: 围栏事件, threshold: '>= 1', unit: '-', how: '日志含"超出水平围栏"等'}
