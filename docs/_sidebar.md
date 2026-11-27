@@ -1,4 +1,5 @@
 - [课程首页](README.md)
+- [AI 协作指南（学生用）](AI_GUIDE.md)
 
 - **第一部分 · 基础**
   - [01 环境搭建与首飞](course/01-setup.md)

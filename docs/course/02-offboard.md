@@ -360,6 +360,33 @@ how: |
 | 5 验收标准 | □ 能复现 CPU 冻结 □ 能说明发布端与订阅端 QoS 应分别是什么 □ 改回后节点正常飞行 |
 | 6 原理 + 扩学 | 教**QoS 匹配**。扩学：检查一个订阅端若用默认 RELIABLE 会怎样（静默收不到） |
 
+## AI 实验室
+
+**先自己想**：飞机起飞后你想让它边飞边转（改变机头朝向）。在不查资料的情况下，你认为需要改哪个话题的哪个字段？先写下猜想。
+
+**问 AI**：复制这段上下文 + 你的问题给 AI。
+
+> 【课程环境】PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic / XTDrone2；命名空间 `/x500_0`；
+> 统一接口 `drone_sim.px4_interface.PX4Interface`；发布端 QoS 为 BEST_EFFORT+VOLATILE；
+> PX4 用 NED（z 向下为正），接口 `alt()` 向上为正。
+> 要求：先给命令/代码，再解释；不要假设版本；不确定请说明。
+>
+> 我的问题：我想让无人机在画圆时机头沿切线方向（yaw 跟随），应该设置 TrajectorySetpoint 的哪个字段？给出基于 PX4Interface 的代码片段。
+
+**验证 AI 的答案**：本章 AI 最容易错的两个点，**必须核对**：
+
+1. **字段名**：AI 可能给 `OffboardControlMode.actuator`——本课程 px4_msgs 1.15 实际是 `thrust_and_torque` 与 `direct_actuator`，没有 `actuator`。核对：
+
+   ```bash
+   grep -vE "^#|^$" ros2_ws/src/px4_msgs/msg/OffboardControlMode.msg
+   ```
+
+2. **yaw 单位与接口**：`heartbeat_position(x, y, z_down, yaw)` 的 yaw 是弧度；画圆时课程用 `theta + π/2`。若 AI 给度数或其他写法，要自己换算验证。
+
+**扩展挑战（用 AI 一起做）**：让 AI 帮你把 `hover_node` 改成"到 3m 后前进 5m 再降落"。
+
+验收：① 代码由你自己整合，能解释每处改动；② 实跑并观察 `vehicle_local_position` 的 x 是否真的前进约 5m；③ 能讲清为什么前进用世界系坐标而不是机体系。
+
 ## ✅ 检查清单
 
 - [ ] 我能说出 Offboard 的三个动作及正确顺序
