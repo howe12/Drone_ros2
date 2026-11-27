@@ -55,6 +55,24 @@
 
 Gazebo 里的模型只是飞机的物理替身，决定它怎么飞的是 PX4 中运行的固件逻辑。PX4 SITL 与真机固件来自同一份源码，因此在仿真里验证过的控制逻辑可以迁移到实机（迁移约束见第 15 章）。
 
+**为什么需要分成三块，而不是写成一个程序？**
+
+这是无人机工程的标准分工，原因有三点：
+
+1. **飞控不该被任务逻辑拖累**。姿态控制需要 250Hz–1kHz 的稳定周期，如果和视觉算法跑在同一进程里，一次图像推理卡顿就可能让飞机失稳。PX4 作为独立进程，保证控制回路不受影响。
+2. **物理环境要可替换**。Gazebo 负责重力和碰撞，换仿真器（或接真机）时，PX4 与你的节点都不用改——这正是 SITL 的意义：仿真与实机共用同一份固件。
+3. **算法要能独立开发**。你的 ROS2 节点只依赖话题，不依赖飞控内部实现，因此第 7 章的 SLAM、第 13 章的集群可以逐步叠加，而不用重写底层。
+
+理解这个分工后，就能明白后面所有实验都是在"第三块"上加东西，前两块保持不变。
+
+**`px4` 进程与真机的关系**
+
+SITL 是 Software-In-The-Loop 的缩写：把飞控固件编译成普通 Linux 程序，用仿真器替代真实传感器和执行器。因此：
+
+- 固件里的控制律、EKF、模式管理逻辑，与真机完全一致；
+- 差别只在数据来源：仿真里传感器数据来自 Gazebo，真机上来自实际硬件；
+- 所以本章跑通的起飞逻辑，参数含义与真机一致，只是真机还需处理标定、延迟和振动（见第 15 章）。
+
 ### 1.2 数据链路与 MicroXRCEAgent
 
 PX4 通过 uXRCE-DDS 与外部通信，ROS2 节点使用 DDS，两者之间需要代理：
@@ -83,6 +101,36 @@ ros2 topic list | grep fmu
 栈未启动时该命令无输出；栈启动后应能看到 `/x500_0/fmu/...` 系列话题。
 
 关于"话题"：可以把它理解成按名字区分的消息通道，程序向某个名字发布消息，其他程序从同一个名字读取。`/x500_0/fmu/out/vehicle_status` 就是 PX4 对外发布自身状态（是否解锁、当前模式）的通道。
+
+**为什么 PX4 不能直接和 ROS2 说话？**
+
+PX4 是一个飞控固件，它对外用的是 uXRCE-DDS 协议（嵌入式场景的轻量 DDS）；ROS2 节点之间用的是标准 DDS。两者协议不同，需要一个"翻译+中转"的进程，这就是 `MicroXRCEAgent`：
+
+- 它监听 UDP 8888，与 PX4 建立会话；
+- 把 PX4 发来的数据转成 ROS2 能直接订阅的 DDS 话题；
+- 反向把 ROS2 发布的指令转给 PX4。
+
+因此它是**必需的中间环节**，不是可选优化。可以用下面的命令确认会话是否建立（日志中应出现 `create_client` 与 `session established`）：
+
+```bash
+tail -20 logs/xtd2_sim.log | grep -iE "create_client|session established"
+```
+
+**常用话题先看这三个**
+
+| 话题 | 方向 | 内容 | 本章用途 |
+|---|---|---|---|
+| `/x500_0/fmu/out/vehicle_status` | PX4 → 节点 | 是否解锁（`arming_state`）、当前模式（`nav_state`） | 判断飞机状态 |
+| `/x500_0/fmu/out/vehicle_local_position` | PX4 → 节点 | 局部坐标 x/y/z（NED，z 向下为正） | 看高度变化 |
+| `/x500_0/fmu/in/trajectory_setpoint` | 节点 → PX4 | 目标位置/速度 | 由 `offboard_demo` 发布 |
+
+查看某个话题的实时数据：
+
+```bash
+ros2 topic echo /x500_0/fmu/out/vehicle_status --once
+```
+
+`arming_state` 为 1 表示上锁，2 表示解锁；`nav_state` 为 14 表示处于 Offboard 模式。这两个字段是后续所有实验判断状态的基础。
 
 ### 1.3 `run_simulation.sh xtd2` 做了什么
 
@@ -177,6 +225,92 @@ python3 tools/grade.py --scenario ctrl.takeoff_hover_land --runs 1 --json out.js
 `out.json` 中每个指标都有数值和 PASS/FAIL；判分规则见第 16 章。
 
 **阅读**：打开 `ros2_ws/src/drone_sim/drone_sim/offboard_demo.py`，查看 `loop()` 中请求解锁前的条件判断。该逻辑在第 2 章展开。
+
+## 场景案例
+
+下面四个案例都来自本仓库的实测记录，数据可在 `logs/grade/` 与 `catalog/scenarios.yaml` 中对照。案例按"背景—做法—结果—要点"组织，帮助把套路迁移到你自己的任务上。
+
+### 案例 1：标准首飞（对应场景 `ctrl.takeoff_hover_land`）
+
+**背景**：需要验证整套环境可用，并给出可核验的飞行结果，而不是只看窗口里的动画。
+
+**做法**：启动栈后运行 `offboard_demo`，关闭画圆（`circle_duration:=0.0`），让飞机只完成起飞—悬停—降落。
+
+```bash
+ros2 run drone_sim offboard_demo --ros-args \
+  -p px4_ns:=/x500_0 -p takeoff_altitude:=5.0 -p circle_duration:=0.0
+```
+
+**结果**（`logs/grade/demo8.md`，1 次运行）：
+
+| 指标 | 中位数 | 阈值 | 结果 |
+|---|---|---|---|
+| 起飞高度误差 | 0.3 m | < 0.4 | PASS |
+| 全程耗时 | 18.6 s | < 75 | PASS |
+| 结束状态 | disarmed | disarmed | PASS |
+
+汇总 3/3 通过。
+
+**要点**：这里的"高度误差 0.3m"是用 Gazebo 世界系真值算的。若改用 PX4 局部坐标，EKF 原点重置会让数字失真——这是第 4、7 章反复出现的教训。
+
+### 案例 2：参数变体——改高度与画圆
+
+**背景**：想让飞机飞 8m 并画 10 秒圆，确认参数化接口能覆盖不同任务，而不用改代码。
+
+**做法**：用 `-p` 覆盖参数（完整参数见 `catalog/params.yaml`）：
+
+```bash
+ros2 run drone_sim offboard_demo --ros-args \
+  -p px4_ns:=/x500_0 -p takeoff_altitude:=8.0 \
+  -p circle_radius:=5.0 -p circle_speed:=0.5 -p circle_duration:=10.0
+```
+
+`offboard_demo` 的可调参数：
+
+| 参数 | 默认值 | 含义 |
+|---|---|---|
+| `takeoff_altitude` | 5.0 | 起飞高度（m） |
+| `circle_radius` | 3.0 | 画圆半径（m） |
+| `circle_speed` | 0.3 | 画圆角速度（rad/s） |
+| `circle_duration` | 25.0 | 画圆时长（s，0 表示跳过） |
+| `px4_ns` | `''` | 命名空间；单机留空由 launch 重映射，多机写 `/x500_0` |
+| `target_system` | 1 | 多机时须等于 MAV_SYS_ID（实例号+1） |
+
+**要点**：画圆耗时约为 `2π / circle_speed`，改角速度会明显改变总时长；把参数写进命令而不是源码，第 4 章航点任务、第 10 章行为树都沿用这个思路。
+
+### 案例 3：故障复现——Agent 缺失导致"节点空转"
+
+**背景**：某次运行只看到"等待 PX4 状态"，飞机不动，但不报明显错误。
+
+**做法与现象**：
+
+```bash
+pkill -x MicroXRCEAgent                 # 制造故障：停掉代理
+ros2 topic list | grep fmu              # 无输出：话题消失
+ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0
+# 日志反复出现 "等待 PX4 状态..."，飞机不动
+bash scripts/run_simulation.sh xtd2      # 重启栈后恢复
+```
+
+**结果**：链路未通时，节点会一直等待状态消息；恢复 Agent 后首飞正常通过判分。
+
+**要点**：排障顺序应为"先看代理在不在 → 再看话题在不在 → 最后看 QoS 与状态字段"。这个问题在多机（第 12 章）和 SLAM（第 7 章）里会以不同面貌出现，但排查路径相同。
+
+### 案例 4：多机命名空间推导（为第 12 章预热）
+
+**背景**：想知道多机时 `/x500_0`、`/x500_1` 这些前缀从哪来。
+
+**做法**：机型名去掉 `gz_` 前缀，加下划线与实例号：
+
+```text
+gz_x500            → /x500_0
+gz_x500_mono_cam   → /x500_mono_cam_0
+gz_x500_lidar_3d   → /x500_lidar_3d_0
+```
+
+第 N 架飞机实例号就是 N，因此第二架是 `/x500_1`，其 `target_system` 必须为 2。
+
+**要点**：本章先用单机熟悉 `/x500_0`；第 12 章双机编队时，命名空间写错会直接导致"2 号机不解锁"，是那一章的核心坑之一。
 
 ## 任务卡
 
