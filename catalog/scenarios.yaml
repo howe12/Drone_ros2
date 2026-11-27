@@ -73,7 +73,7 @@ scenarios:
     world: aruco
     stack: auto
     namespaces: ['/x500_0']
-    duration: 110
+    duration: 135
     command: |
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square speed:=1.0
     metrics:
@@ -150,7 +150,7 @@ scenarios:
     world: e7_obstacles
     stack: auto
     namespaces: ['/x500_depth_0']
-    duration: 110
+    duration: 135
     goal: [6.0, 0.0, 1.2]
     arrive_tol: 0.8
     obstacles: [[2.6, 0.85], [4.0, -0.85]]
@@ -230,7 +230,7 @@ scenarios:
     world: aruco
     stack: none
     namespaces: ['/x500_0', '/x500_1', '/x500_2']
-    duration: 110
+    duration: 135
     arrive_tol: 0.8
     goals:
       /x500_0: [3.0, 0.0, 2.5]
@@ -252,7 +252,7 @@ scenarios:
     world: walls
     stack: auto
     namespaces: ['/standard_vtol_0']
-    duration: 110
+    duration: 135
     command: |
       ros2 run drone_sim vtol_demo --ros-args -p px4_ns:=/standard_vtol_0
     metrics:

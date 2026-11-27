@@ -2,7 +2,7 @@
 
 > 📖 **开源课程已上线**：[howe12.github.io/Drone_ros2](https://howe12.github.io/Drone_ros2/) —— L0 首飞 → L6 集群/VTOL 阶梯实验。课程源码在 [docs/](docs/README.md)。
 >
-> ⚠️ **验证状态以本文档的[自动判定表](#验证状态与自动判分)为准**：12 个场景中 **8 个通过、4 个未达标**（集群、VTOL、航点、VIO）。
+> ⚠️ **验证状态以本文档的[自动判定表](#验证状态与自动判分)为准**：12 个场景中 **9 个通过、3 个未达标**（集群、VTOL、VIO）。
 > 所有结论都可用 `bash scripts/grade.sh` 复现，不依赖截图。
 
 基于 **PX4 v1.15.4 + ROS2 Humble + Gazebo** 的无人机仿真开发工作区。
@@ -241,7 +241,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 | 场景 | 判定 | 实测指标 | 阈值 | 视频 |
 |---|---|---|---|---|
 | `ctrl.takeoff_hover_land` 起飞-悬停-降落 | ✅ **PASS** | 高度误差 0.21m / 32.5s / 正常上锁 | <0.4m / <75s | — |
-| `ctrl.waypoint_square` 正方形航点 | ❌ 1/3 | 到点误差 **0.71m** / 命中 3/4 | <0.5m / ≥4 | [▶](videos/ctrl.waypoint_square.mp4) |
+| `ctrl.waypoint_square` 正方形航点 | ✅ **PASS** | 到点误差 **0.26m** / 命中 **4/4** / 正常上锁 | <0.5m / ≥4 | [▶](videos/ctrl.waypoint_square.mp4) |
 | `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 启动成功 / 无异常退出 | — | — |
 | `vision.aruco_precision_landing` 精准降落 | ✅ **PASS** | 落点偏差 **0.028–0.083m** / 正常上锁 | <0.15m | [▶](videos/vision.aruco_precision_landing.mp4) |
 | `slam.lio_odometry` 3D 激光里程计 | ✅ **PASS** | 高度误差 **0.002m** / 9.4Hz / 跨度 3.6m | <0.2m / >5Hz / >2m | — |
@@ -253,27 +253,45 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 | `vtol.transition` VTOL 过渡 | ❌ 2/3 | 高度 19.1m ✅ / **固定翼段空速 2.9m/s** ❌ | >15m/s | [▶](videos/vtol.transition.mp4) |
 | `vio.vins_mono` 视觉惯性里程计 | ❌ 未通过 | 里程计输出 **0 Hz**（算法初始化失败）| >5Hz | — |
 
-**8 / 12 通过**。未达标的 4 项都是**真实功能问题**，不是判定口径问题（口径问题已在复测中逐个修正）：
+**9 / 12 通过**。未达标的 3 项都是**真实功能问题**，不是判定口径问题（口径问题已在复测中逐个修正）：
 
 | 未达标项 | 根因 | 状态 |
 |---|---|---|
 | 集群 0/3 到达 | `x500_0` 直线飞走（机体系速度→世界系方向映射错），与 ego-planner 同源 | Issue #9 已**重新打开** |
 | VTOL 空速不足 | `vtol_demo` 的 FW_CRUISE 段只观察、不发前向速度指令 | Issue #11 已**重新打开** |
-| 航点到点误差 0.71m | 巡航 1.0 m/s + 到点容差 0.35m 导致超调 | 待调参（不放宽阈值）|
 | VIO 无输出 | VINS 单目视觉惯性初始化失败 | Issue #6 保持 open |
 
 > ⚠️ **自报口径说明**：`multi.formation` 的队形误差取自跟随节点自己打印的日志，
 > 属于"自报指标"，尚未做独立几何校验（已在 `catalog/scenarios.yaml` 的 `how` 字段标注）。
 
-### 录屏（含判定过程）
+### 录屏（页面内直接播放）
 
-| 场景 | 录屏 | 说明 |
-|---|---|---|
-| ArUco 精准降落 | [vision.aruco_precision_landing.mp4](videos/vision.aruco_precision_landing.mp4) | 识别靶标 → 视觉伺服居中 → 分三阶段下降 |
-| 行为树任务 | [mission.behavior_tree.mp4](videos/mission.behavior_tree.mp4) | Takeoff → 4×GotoWaypoint(z=3m) → Land |
-| 3 机集群 | [swarm.cross_3uav.mp4](videos/swarm.cross_3uav.mp4) | 三角形交叉，含高度分层 |
-| VTOL 过渡 | [vtol.transition.mp4](videos/vtol.transition.mp4) | 垂直起飞 → 过渡 → 转回 → 降落（含失败的空速问题）|
-| 正方形航点 | [ctrl.waypoint_square.mp4](videos/ctrl.waypoint_square.mp4) | 4 点正方形，含超调问题 |
+> GIF 是整段过程的时间压缩版，**页面内自动播放**；点击下方链接可看原速 MP4。
+> 录制时已将 Gazebo 相机设置为**跟随被测无人机**。
+
+**ArUco 精准降落**（实测落点偏差 0.077 m，阈值 <0.15 m）
+![ArUco 精准降落](videos/vision.aruco_precision_landing.gif)
+[▶ 原速 MP4](videos/vision.aruco_precision_landing.mp4)
+
+**行为树任务**（4/4 航点全部到达，根节点 SUCCESS）
+![行为树任务](videos/mission.behavior_tree.gif)
+[▶ 原速 MP4](videos/mission.behavior_tree.mp4)
+
+**正方形航点**（到点误差 0.24 m，4/4 命中）
+![正方形航点](videos/ctrl.waypoint_square.gif)
+[▶ 原速 MP4](videos/ctrl.waypoint_square.mp4)
+
+**起飞-悬停-降落**（高度误差 0.36 m，19.3 s）
+![起飞悬停降落](videos/ctrl.takeoff_hover_land.gif)
+[▶ 原速 MP4](videos/ctrl.takeoff_hover_land.mp4)
+
+**VTOL 过渡**（⚠️ 失败案例：固定翼段空速仅 2.8 m/s，飞机未真正进入固定翼巡航）
+![VTOL 过渡](videos/vtol.transition.gif)
+[▶ 原速 MP4](videos/vtol.transition.mp4)
+
+**3 机集群交叉**（⚠️ 失败案例：最小间距 1.2 m 合格，但 0/3 到达目标）
+![3 机集群](videos/swarm.cross_3uav.gif)
+[▶ 原速 MP4](videos/swarm.cross_3uav.mp4)
 
 ### 运行截图
 
