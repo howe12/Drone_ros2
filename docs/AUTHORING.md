@@ -79,6 +79,30 @@ prompt: |
 - 一张图只承担一个说明任务；不要为装饰插图。
 - 已有真实截图（Gazebo 画面、RViz、终端输出）的地方直接引用 `images/`，不再重复占位。
 
+## 二·七、运行截图占位规范（待实际运行时补图）
+
+与"生图占位"（二·六，画架构/原理图）不同，**运行截图**来自实际跑仿真时的真实画面：Gazebo 窗口、终端输出、判分报告、RViz 等。未截图时用下面格式占位，并写清"何时截、截什么、用什么命令"。
+
+```markdown
+<!-- SCREENSHOT_PLACEHOLDER
+id: shot-ch01-first-flight
+caption: 图 1.3 首飞：Gazebo 中 x500 爬升到约 5m 的画面
+when: 运行 offboard_demo 后，日志出现"到达目标高度"时
+what: 截取 Gazebo Sim 主窗口，需能看到飞机离地、接近目标高度
+how: |
+  WID=$(DISPLAY=:0 xwininfo -root -tree | grep -oE '0x[0-9a-f]+ "Gazebo Sim"' | head -1 | awk '{print $1}')
+  DISPLAY=:0 import -window "$WID" docs/images/shot-ch01-first-flight.png
+-->
+![图 1.3 首飞画面](images/PLACEHOLDER-shot-ch01-first-flight.png)
+```
+
+规则：
+
+- `id` 命名 `shot-ch<章号>-<主题>`，图片先放 `images/PLACEHOLDER-<id>.png`。
+- `when` 说明运行时机（哪条命令之后、日志出现什么时）；`what` 说明画面里必须能看到什么；`how` 给可复制的截图命令（便于后续批量补图）。
+- 已有真实截图的（如 `images/04_xtd2_x500_takeoff.png`）直接引用，**不重复占位**。
+- 截图必须能支撑正文结论：例如讲"起飞到 5m"，截图就要能看出飞机离地高度。
+
 ## 三、小白视角三维修审计（每章发布前自检）
 
 | 维度 | 检查项 |
