@@ -1,5 +1,7 @@
 # Drone_ros2 — 仿真无人机开发项目
 
+> 📖 **开源课程已上线**：[howe12.github.io/Drone_ros2](https://howe12.github.io/Drone_ros2/) —— 16 章阶梯实验（L0 首飞 → L6 集群/VTOL），全部实测验证 + 自动判分。课程源码在 [docs/](docs/README.md)。
+
 基于 **PX4 v1.15.4 + ROS2 Humble + Gazebo** 的无人机仿真开发工作区。
 
 ## 设备与环境

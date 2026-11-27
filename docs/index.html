@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Drone ROS2 开源课程 — 从零到集群的仿真无人机之路</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="基于 PX4 + ROS2 Humble + Gazebo Harmonic 的仿真无人机开源课程：16 章阶梯实验，全部实测验证，附自动判分系统。">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <style>
+    :root { --theme-color: #2c7be5; }
+    .sidebar { width: 280px; }
+    .markdown-section { max-width: 900px; }
+    .markdown-section img { border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+    .cover { background: linear-gradient(135deg, #1a2a6c 0%, #2c7be5 60%, #4facfe 100%) !important; color: #fff; }
+    .cover h1, .cover p, .cover blockquote { color: #fff !important; }
+  </style>
+</head>
+<body>
+  <div id="app">加载中…</div>
+  <script>
+    window.$docsify = {
+      name: 'Drone ROS2 开源课程',
+      repo: 'https://github.com/howe12/Drone_ros2',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      coverpage: true,
+      onlyCover: false,
+      auto2top: true,
+      maxLevel: 3,
+      alias: { '/.*/_sidebar.md': '/_sidebar.md' },
+      search: {
+        placeholder: '搜索课程…',
+        noData: '找不到结果',
+        depth: 3
+      },
+      copyCode: { buttonText: '复制', errorText: '失败', successText: '已复制' },
+      pagination: { previousText: '上一章', nextText: '下一章', crossChapter: true },
+      count: { countable: true, language: 'chinese' }
+    }
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code@2"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-pagination@2/dist/docsify-pagination.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+</body>
+</html>
