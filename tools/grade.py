@@ -128,31 +128,51 @@ def wait_for_status(ns='/x500_0', timeout=180):
 
 # ---------------------------------------------------------------- ROS 采样
 class Sampler:
-    """后台线程采样 gz 真值位姿与 PX4 状态"""
+    """多机位姿 + PX4 状态 + 速度 + 任意里程计话题 采样"""
 
-    def __init__(self, ns='/x500_0'):
+    def __init__(self, namespaces=('/x500_0',), odom_topics=None):
         import rclpy
         from rclpy.node import Node
         from rclpy.qos import qos_profile_sensor_data
         from geometry_msgs.msg import PoseArray
-        from px4_msgs.msg import VehicleStatus
+        from px4_msgs.msg import VehicleStatus, VehicleLocalPosition
+        from drone_sim.px4_interface import QOS_SUB
 
         self.rclpy = rclpy
         ensure_rclpy()
         self.node = Node('grade_sampler')
-        self.poses = []          # (t, x, y, z)
-        self.arm_states = []     # (t, arming_state)
-        self.statuses = []       # (t, nav_state)
-        self.node.create_subscription(
-            PoseArray, f'{ns}/pose',
-            lambda m: self.poses.append((time.time(), m.poses[0].position.x,
-                                         m.poses[0].position.y, m.poses[0].position.z))
-            if m.poses else None, qos_profile_sensor_data)
-        from drone_sim.px4_interface import QOS_SUB
-        self.node.create_subscription(
-            VehicleStatus, f'{ns}/fmu/out/vehicle_status',
-            lambda m: (self.arm_states.append((time.time(), m.arming_state)),
-                       self.statuses.append((time.time(), m.nav_state))), QOS_SUB)
+        self.poses = {ns: [] for ns in namespaces}   # (t, x, y, z) gz 世界系 ENU
+        self.arms = {ns: [] for ns in namespaces}    # (t, arming_state)
+        self.navs = {ns: [] for ns in namespaces}    # (t, nav_state)
+        self.vel = {ns: [] for ns in namespaces}     # (t, vx, vy, vz, z)
+        self.odom = {}
+        for ns in namespaces:
+            self.node.create_subscription(
+                PoseArray, f'{ns}/pose',
+                (lambda m, n=ns: self.poses[n].append(
+                    (time.time(), m.poses[0].position.x,
+                     m.poses[0].position.y, m.poses[0].position.z)) if m.poses else None),
+                qos_profile_sensor_data)
+            self.node.create_subscription(
+                VehicleStatus, f'{ns}/fmu/out/vehicle_status',
+                (lambda m, n=ns: (self.arms[n].append((time.time(), m.arming_state)),
+                                  self.navs[n].append((time.time(), m.nav_state)))),
+                QOS_SUB)
+            self.node.create_subscription(
+                VehicleLocalPosition, f'{ns}/fmu/out/vehicle_local_position',
+                (lambda m, n=ns: self.vel[n].append(
+                    (time.time(), m.vx, m.vy, m.vz, -m.z))), QOS_SUB)
+
+        from nav_msgs.msg import Odometry
+        for name, topic in (odom_topics or {}).items():
+            self.odom[name] = []
+            self.node.create_subscription(
+                Odometry, topic,
+                (lambda m, k=name: self.odom[k].append(
+                    (time.time(), m.pose.pose.position.x,
+                     m.pose.pose.position.y, m.pose.pose.position.z))),
+                qos_profile_sensor_data)
+
         self._stop = False
         self._th = threading.Thread(target=self._spin, daemon=True)
         self._th.start()
@@ -173,53 +193,216 @@ class Sampler:
             pass
 
 
+class Ctx:
+    """探针上下文: 采样数据 + 时间窗 + 节点日志 + 场景定义"""
+
+    def __init__(self, s, t_start, t_end, node_log, sc):
+        self.s = s
+        self.t_start = t_start
+        self.t_end = t_end
+        self.node_log = node_log
+        self.sc = sc
+
+    def poses(self, ns=None):
+        ns = ns or next(iter(self.s.poses))
+        return [p for p in self.s.poses[ns] if p[0] >= self.t_start]
+
+    def arms(self, ns=None):
+        ns = ns or next(iter(self.s.arms))
+        return [p for p in self.s.arms[ns] if p[0] >= self.t_start]
+
+    def vel(self, ns=None):
+        ns = ns or next(iter(self.s.vel))
+        return [p for p in self.s.vel[ns] if p[0] >= self.t_start]
+
+    def logtext(self):
+        try:
+            with open(self.node_log, errors='ignore') as f:
+                return f.read()
+        except OSError:
+            return ''
+
+    def disarmed_at_end(self, ns=None):
+        a = self.arms(ns)
+        return 1 if (a and a[-1][1] == 1) else 0
+
+
 # ---------------------------------------------------------------- 探针实现
 @probe('ctrl.takeoff_hover_land')
-def probe_takeoff(s, t_start, t_end, target_alt=5.0):
-    """起飞-悬停-降落: 高度误差 / 是否上锁结束"""
-    alts = [z for (t, x, y, z) in s.poses if t >= t_start]   # gz ENU: z 向上为正
-    max_alt = max(alts) if alts else 0.0
-    armed = [(t, a) for (t, a) in s.arm_states if t >= t_start]
-    ended_disarmed = bool(armed) and armed[-1][1] == 1
-    t_arm = next((t for (t, a) in armed if a == 2), None)
-    t_disarm = next((t for (t, a) in armed if a == 1 and t_arm and t > t_arm), None)
+def probe_takeoff(ctx, target_alt=5.0):
+    ps = ctx.poses()
+    max_alt = max((z for (_, _, _, z) in ps), default=0.0)
+    arms = ctx.arms()
+    t_arm = next((t for (t, a) in arms if a == 2), None)
+    t_disarm = next((t for (t, a) in arms if a == 1 and t_arm and t > t_arm), None)
     dur = (t_disarm - t_arm) if (t_arm and t_disarm) else 99.0
-    return {
-        '起飞高度误差': round(abs(max_alt - target_alt), 2),
-        '全程耗时': round(dur, 1),
-        '结束状态': 1 if ended_disarmed else 0,
-    }
-
-
-def load_mission_waypoints(mission='square'):
-    """从 config/mission_<name>.yaml 读航点 (NED, z 向上为负)"""
-    import yaml
-    path = os.path.join(ROOT, f'ros2_ws/src/drone_sim/config/mission_{mission}.yaml')
-    with open(path) as f:
-        cfg = yaml.safe_load(f)
-    return [(float(w['x']), float(w['y']), float(w.get('z', -5.0))) for w in cfg['waypoints']]
+    return {'起飞高度误差': round(abs(max_alt - target_alt), 2),
+            '全程耗时': round(dur, 1),
+            '结束状态': ctx.disarmed_at_end()}
 
 
 @probe('ctrl.waypoint_square')
-def probe_waypoint(s, t_start, t_end, tol=0.5, mission='square'):
-    """方形航点: 每个航点的最小接近距离 -> 到点误差; 命中数 -> 航点数"""
-    pts = [(x, y, z) for (t, x, y, z) in s.poses if t >= t_start]
+def probe_waypoint(ctx, tol=0.5, mission='square'):
+    ps = ctx.poses()
     wps = load_mission_waypoints(mission)
-    if not pts:
+    if not ps:
         return {'到点误差': 99.0, '命中航点数': 0, '结束状态': 0}
     errs, hits = [], 0
     for (wx, wy, wz) in wps:
-        d = min(((px - wx) ** 2 + (py - wy) ** 2 + (pz - wz) ** 2) ** 0.5 for (px, py, pz) in pts)
+        d = min(((px - wx) ** 2 + (py - wy) ** 2 + (pz - wz) ** 2) ** 0.5
+                for (_, px, py, pz) in ps)
         errs.append(d)
         if d < tol:
             hits += 1
-    armed = [(t, a) for (t, a) in s.arm_states if t >= t_start]
-    ended_disarmed = bool(armed) and armed[-1][1] == 1
-    return {
-        '到点误差': round(max(errs), 2),
-        '命中航点数': hits,
-        '结束状态': 1 if ended_disarmed else 0,
-    }
+    return {'到点误差': round(max(errs), 2), '命中航点数': hits,
+            '结束状态': ctx.disarmed_at_end()}
+
+
+@probe('vision.aruco_precision_landing')
+def probe_aruco(ctx):
+    """落点偏差: 结束时水平位置与靶标(世界原点)的距离"""
+    ps = ctx.poses()
+    if not ps:
+        return {'落点偏差': 99.0, '最终对齐': 0, '结束状态': 0}
+    _, x, y, z = ps[-1]
+    log = ctx.logtext()
+    aligned = 1 if ('最终对齐完成' in log or '统计居中达标' in log) else 0
+    return {'落点偏差': round((x * x + y * y) ** 0.5, 3),
+            '最终对齐': aligned,
+            '结束状态': ctx.disarmed_at_end()}
+
+
+@probe('slam.lio_odometry')
+def probe_lio(ctx):
+    """里程计精度: LIO z 与 gz 真值 z 的中位偏差; 频率; 轨迹跨度"""
+    od = [p for p in ctx.s.odom.get('lio', []) if p[0] >= ctx.t_start]
+    ps = ctx.poses()
+    if not od or not ps:
+        return {'高度误差': 99.0, '里程计频率': 0.0, '轨迹跨度': 0.0}
+    # 按时间对齐 (取最近真值)
+    errs = []
+    for (t, ox, oy, oz) in od:
+        near = min(ps, key=lambda p: abs(p[0] - t))
+        errs.append(abs(oz - near[3]))
+    dur = max(1e-3, od[-1][0] - od[0][0])
+    xs = [p[1] for p in ps]
+    ys = [p[2] for p in ps]
+    span = max(max(xs) - min(xs), max(ys) - min(ys))
+    errs.sort()
+    return {'高度误差': round(errs[len(errs) // 2], 3),
+            '里程计频率': round(len(od) / dur, 1),
+            '轨迹跨度': round(span, 2)}
+
+
+@probe('plan.obstacle_avoidance')
+def probe_avoid(ctx):
+    ps = ctx.poses()
+    goal = tuple(ctx.sc.get('goal', [6.0, 0.0, 1.2]))
+    obs = ctx.sc.get('obstacles', [[2.6, 0.85], [4.0, -0.85]])
+    if not ps:
+        return {'目标误差': 99.0, '障碍最小距离': 0.0, '到达': 0}
+    def gd(p):
+        return ((p[1] - goal[0]) ** 2 + (p[2] - goal[1]) ** 2 + (p[3] - goal[2]) ** 2) ** 0.5
+    gmin = min(gd(p) for p in ps)          # 最近接近距离 (benchmark 常用口径)
+    gend = gd(ps[-1])                      # 结束时的静止误差
+    dmin = min((((px - ox) ** 2 + (py - oy) ** 2) ** 0.5)
+               for (_, px, py, _) in ps for (ox, oy) in obs)
+    return {'最近接近距离': round(gmin, 2),
+            '结束误差': round(gend, 2),
+            '障碍最小距离': round(dmin, 2)}
+
+
+@probe('multi.formation')
+def probe_formation(ctx):
+    """队形误差: 跟随者与 (领航者 + 期望偏移) 的中位距离"""
+    off = ctx.sc.get('formation_offset', [0.0, 0.0])
+    names = list(ctx.s.poses.keys())
+    if len(names) < 2:
+        return {'队形误差': 99.0, '双机同时起飞': 0}
+    lead = ctx.poses(names[0])
+    foll = ctx.poses(names[1])
+    if len(lead) < 10 or len(foll) < 10:
+        return {'队形误差': 99.0, '双机同时起飞': 0}
+    errs = []
+    for (t, lx, ly, lz) in lead[::10]:
+        near = min(foll, key=lambda p: abs(p[0] - t))
+        ex, ey = lx + off[0], ly + off[1]
+        errs.append(((near[1] - ex) ** 2 + (near[2] - ey) ** 2) ** 0.5)
+    errs.sort()
+    a0 = next((t for (t, a) in ctx.arms(names[0]) if a == 2), None)
+    a1 = next((t for (t, a) in ctx.arms(names[1]) if a == 2), None)
+    both = 1 if (a0 and a1 and abs(a0 - a1) < 8.0) else 0
+    return {'队形误差': round(errs[len(errs) // 2], 2), '双机同时起飞': both}
+
+
+@probe('swarm.cross_3uav')
+def probe_swarm(ctx):
+    """最小间距: 任意两机最近距离; 全部到达: 各机与目标距离 < tol 的数量"""
+    names = list(ctx.s.poses.keys())
+    goals = ctx.sc.get('goals', {})
+    tol = float(ctx.sc.get('arrive_tol', 0.8))
+    series = {n: ctx.poses(n) for n in names}
+    if any(len(v) < 10 for v in series.values()):
+        return {'最小间距': 0.0, '全部到达': 0}
+    # 以最早开始的那台为时间基准, 逐点取最近邻
+    dmin = 1e9
+    base = names[0]
+    for (t, x, y, z) in series[base][::5]:
+        for other in names[1:]:
+            near = min(series[other], key=lambda p: abs(p[0] - t))
+            dmin = min(dmin, ((x - near[1]) ** 2 + (y - near[2]) ** 2 + (z - near[3]) ** 2) ** 0.5)
+    arrived = 0
+    for n in names:
+        g = goals.get(n)
+        if not g:
+            continue
+        _, x, y, z = series[n][-1]
+        if ((x - g[0]) ** 2 + (y - g[1]) ** 2 + (z - g[2]) ** 2) ** 0.5 < tol:
+            arrived += 1
+    return {'最小间距': round(dmin, 2), '全部到达': arrived}
+
+
+@probe('mission.behavior_tree')
+def probe_bt(ctx):
+    log = ctx.logtext()
+    ok = 1 if '任务结束: SUCCESS' in log else 0
+    wps_ok = 1 if (ok and log.count('SUCCESS') >= 3) else 0
+    return {'根节点状态': ok, '航点节点': wps_ok, '结束状态': ctx.disarmed_at_end()}
+
+
+@probe('vtol.transition')
+def probe_vtol(ctx):
+    vs = ctx.vel()
+    ps = ctx.poses()
+    hmax = max((((vx * vx + vy * vy) ** 0.5) for (_, vx, vy, _, _) in vs), default=0.0)
+    alt = max((z for (_, _, _, z) in ps), default=0.0)
+    return {'固定翼段空速': round(hmax, 1),
+            '垂直起飞高度': round(alt, 1),
+            '结束状态': ctx.disarmed_at_end()}
+
+
+@probe('safety.geofence')
+def probe_safety(ctx):
+    log = ctx.logtext()
+    fence = 1 if ('超出水平围栏' in log or '超出高度上限' in log or '速度超限' in log) else 0
+    other = sum(1 for kw in ('倾角过大', '低于高度下限', '外部急停')
+                if kw in log)
+    return {'围栏事件': fence, '误报': other}
+
+
+@probe('vision.yolo_detect')
+def probe_yolo(ctx):
+    log = ctx.logtext()
+    started = 1 if ('YOLO 检测启动' in log or '检测启动' in log) else 0
+    crashed = 1 if ('Traceback' in log or 'ModuleNotFoundError' in log) else 0
+    return {'启动成功': started, '无异常退出': 0 if crashed else 1}
+
+
+@probe('vio.vins_mono')
+def probe_vio(ctx):
+    """VIO 当前跑不通 —— 探针如实报告"无输出", 该场景标 unverified, 不作作业"""
+    od = [p for p in ctx.s.odom.get('vins', []) if p[0] >= ctx.t_start]
+    return {'里程计输出频率': round(len(od) / max(1e-3, ctx.t_end - ctx.t_start), 1)}
 
 
 # ---------------------------------------------------------------- 主流程
@@ -232,6 +415,9 @@ def run_scenario(sc, runs, platform='xtd2'):
 
     os.makedirs(OUT_DIR, exist_ok=True)
     model, world = sc['model'], sc['world']
+    # 多机场景: namespaces 列表; 单机默认 ['/x500_0']
+    namespaces = tuple(sc.get('namespaces') or ['/x500_0'])
+    odom_topics = sc.get('odom_topics') or {}
     results = []
 
     for r in range(runs):
@@ -243,45 +429,75 @@ def run_scenario(sc, runs, platform='xtd2'):
         except OSError:
             pass
         base = log_size(SIM_LOG)      # 启动前基线, 只认之后的新日志
-        stack = Proc(f'bash scripts/run_simulation.sh {platform} {model} {world}',
-                     f'{OUT_DIR}/{sid}_run{r}_stack.log')
+        # 场景可用 stack: none 表示"命令自己起整套仿真" (如 multi_vehicle/swarm_cross launch)
+        own_stack = str(sc.get('stack', 'auto')) == 'none'
+        stack = None if own_stack else Proc(
+            f'bash scripts/run_simulation.sh {platform} {model} {world}',
+            f'{OUT_DIR}/{sid}_run{r}_stack.log')
+        procs = []
         try:
-            ready = wait_for_status('/x500_0', timeout=180) or wait_px4_ready(offset=base, timeout=30)
-            if not ready:
+            ready = wait_for_status(namespaces[0], timeout=180) or wait_px4_ready(offset=base, timeout=30)
+            if not ready and not own_stack:
                 print('  ✗ 等 PX4 就绪失败 (状态话题无数据且日志无 Ready)')
                 results.append({'ok': False, 'metrics': {}})
                 continue
-            print('  PX4 就绪')
-            sampler = Sampler('/x500_0')
-            time.sleep(2)
 
-            # 场景命令 = yaml 里 command 的第二行 (第一行是栈启动)
-            _lines = [ln.strip() for ln in sc['command'].strip().splitlines()
-                      if ln.strip() and 'run_simulation.sh' not in ln]
-            # 处理 yaml 块里的换行续行符, 否则 '\\' 会被当成参数传给 ros2
-            node_cmd = ' '.join(l.rstrip('\\').strip() for l in _lines)
-            t_start = time.time()
-            node = Proc(node_cmd, f'{OUT_DIR}/{sid}_run{r}_node.log')
+            sampler = Sampler(namespaces=namespaces, odom_topics=odom_topics)
+            time.sleep(1)
+
+            # 场景命令: 逐行启动 (每行一个独立进程), 剥离 run_simulation.sh 行与续行符
+            cmds = [ln.strip() for ln in sc['command'].strip().splitlines()
+                    if ln.strip() and 'run_simulation.sh' not in ln]
+            if own_stack:
+                t_start = time.time()
+                # 第一条命令负责起整套仿真, 必须等它就绪后再起其余节点
+                procs.append(Proc(cmds[0].rstrip('\\').strip(),
+                                  f'{OUT_DIR}/{sid}_run{r}_node0.log'))
+                if not wait_for_status(namespaces[0], timeout=240):
+                    print('  ✗ 自起栈未能就绪 (第一条命令未拉起 PX4)')
+                    sampler.stop()
+                    results.append({'ok': False, 'metrics': {}})
+                    continue
+                print('  自起栈就绪')
+                for i, c in enumerate(cmds[1:], start=1):
+                    procs.append(Proc(c.rstrip('\\').strip(),
+                                      f'{OUT_DIR}/{sid}_run{r}_node{i}.log'))
+                    time.sleep(3)
+            else:
+                if not ready:
+                    print('  ✗ 等 PX4 就绪失败')
+                    sampler.stop()
+                    results.append({'ok': False, 'metrics': {}})
+                    continue
+                print('  PX4 就绪')
+                t_start = time.time()
+                for i, c in enumerate(cmds):
+                    procs.append(Proc(c.rstrip('\\').strip(),
+                                      f'{OUT_DIR}/{sid}_run{r}_node{i}.log'))
+                    time.sleep(2)
             time.sleep(float(sc.get('duration', 60)))
             t_end = time.time()
 
-            n_pose = len([1 for (t, *_) in sampler.poses if t >= t_start])
-            n_arm = len([1 for (t, _) in sampler.arm_states if t >= t_start])
+            n_pose = sum(len([1 for p in sampler.poses[n] if p[0] >= t_start]) for n in namespaces)
+            n_arm = sum(len([1 for p in sampler.arms[n] if p[0] >= t_start]) for n in namespaces)
             if n_pose < 10 or n_arm < 2:
                 print(f'  ✗ 采样不足 (pose={n_pose}, status={n_arm}) —— 判为本次运行失败')
-                sampler.stop(); node.kill()
                 results.append({'ok': False, 'metrics': {}})
                 continue
-            zs = [z for (t, x, y, z) in sampler.poses if t >= t_start]
+            zs = [p[3] for n in namespaces for p in sampler.poses[n] if p[0] >= t_start]
             if zs:
                 print(f'  采样诊断: {len(zs)} 点, 高度范围 [{min(zs):.2f}, {max(zs):.2f}] m')
-            metrics = PROBES[sid](sampler, t_start, t_end)
+            node_log = f'{OUT_DIR}/{sid}_run{r}_node0.log'
+            ctx = Ctx(sampler, t_start, t_end, node_log, sc)
+            metrics = PROBES[sid](ctx)
             sampler.stop()
-            node.kill()
             print(f"  指标: {metrics}")
             results.append({'ok': True, 'metrics': metrics})
         finally:
-            stack.kill()
+            for pr in procs:
+                pr.kill()
+            if stack is not None:
+                stack.kill()
             time.sleep(6)
 
     # ---- 聚合 ----

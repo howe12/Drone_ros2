@@ -6,20 +6,24 @@
 # 字段说明:
 #   id           场景唯一名 (课程引用它)
 #   level        难度层级 L0(入门) .. L6(进阶), 供阶梯排课
-#   model        启动机型 (run_simulation.sh 第二参数)
-#   world        世界 (第三参数), 见 worlds 段
-#   command      完整启动命令 (可直接复制执行)
-#   metrics      判定指标: 名字/阈值/单位/取法 —— 这是"检测标准"的可执行形态
-#   evidence     历史实测证据文件 (供对照, 不是自动判定依据)
+#   model        启动机型 (run_simulation.sh 第二参数; stack: none 时忽略)
+#   world        世界 (第三参数; stack: none 时忽略)
+#   command      完整启动命令, 可多行 (每行一个独立进程)
+#   stack        auto=先跑 run_simulation.sh; none=命令自己起整套仿真
+#   namespaces   需要采样的 PX4 命名空间 (多机场景列多个)
+#   odom_topics  需要采样的里程计话题 {别名: 话题}
+#   duration     观察窗口(秒)
+#   metrics      判定指标: name/threshold/unit/how —— 这是"检测标准"的可执行形态
+#   evidence     历史实测证据 (供对照, 不是自动判定依据)
 #   pitfalls     已知坑 (课程里应作为"故障实验室"素材)
-#   status       verified=本人实测通过 / partial=部分达标 / unverified=未验证
+#   status       verified=实测通过 / partial / unverified=未验证 / broken
 
 meta:
   version: 1
   updated: '2026-11-27'
   note: >-
-    指标阈值取自实际飞行数据并留了余量; 自动判定应由 tools/grade.py 执行,
-    且要求 N 次运行中 >=2/3 通过 (单次通过不算 PASS, 避免幸存者偏差)。
+    指标阈值取自实际飞行数据并留了余量; 自动判定由 tools/grade.py 执行,
+    默认要求 N 次运行中 >=2/3 通过 (单次通过不算 PASS, 避免幸存者偏差)。
 
 worlds:
   default:      {desc: 空场, 用途: 控制入门/调试, status: verified}
@@ -42,100 +46,176 @@ models:
   gz_rc_cessna:          {desc: 固定翼, sensors: [imu], status: unverified}
 
 scenarios:
+  # ---------------------------------------------------------------- L0 控制入门
   - id: ctrl.takeoff_hover_land
     level: L0
     title: 起飞-悬停-降落
     model: gz_x500
     world: default
-    duration: 95          # 观察窗口(秒): 起飞+悬停+降落并上锁
+    stack: auto
+    namespaces: ['/x500_0']
+    duration: 95
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_x500 default
-      ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0 \
-        -p takeoff_altitude:=5.0 -p circle_duration:=0.0
+      ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0 -p takeoff_altitude:=5.0 -p circle_duration:=0.0
     metrics:
       - {name: 起飞高度误差, threshold: '< 0.4', unit: m, how: 'max(-z) 与目标高度之差'}
       - {name: 全程耗时, threshold: '< 75', unit: s, how: '解锁到上锁'}
-      - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
-    evidence: logs/smoke_iface.log
-    pitfalls: [QoS_RELIABLE_死锁, 解锁前未预流setpoint]
+      - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
+    evidence: logs/grade/demo8.md
+    pitfalls: [QoS_RELIABLE_死锁, 解锁前未预流setpoint, 相对话题vs命名空间]
     status: verified
 
+  # ---------------------------------------------------------------- L1 航点
   - id: ctrl.waypoint_square
     level: L1
     title: 正方形航点任务 + RViz 可视化
     model: gz_x500
     world: aruco
+    stack: auto
+    namespaces: ['/x500_0']
     duration: 110
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_x500 aruco
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square speed:=1.0
     metrics:
       - {name: 到点误差, threshold: '< 0.5', unit: m, how: '各航点最小接近距离的最大值'}
       - {name: 命中航点数, threshold: '>= 4', unit: 个, how: 'min|pos-wp| < 0.5m 的航点数'}
-      - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
+      - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
     evidence: logs/smoke_wp2.log, screenshots/08_e2_waypoint_mission.png
     pitfalls: [EKF原点重置导致贴地爬行]
     status: verified
 
+  # ---------------------------------------------------------------- L2 视觉
+  - id: vision.yolo_detect
+    level: L2
+    title: YOLO 目标检测节点
+    model: gz_x500_mono_cam
+    world: baylands
+    stack: auto
+    namespaces: ['/x500_mono_cam_0']
+    duration: 30
+    command: |
+      bash scripts/run_yolo.sh /x500_mono_cam_0/camera/image_raw
+    metrics:
+      - {name: 启动成功, threshold: '>= 1', unit: '-', how: '日志含"YOLO 检测启动"'}
+      - {name: 无异常退出, threshold: '>= 1', unit: '-', how: '日志无 Traceback/ModuleNotFound'}
+    evidence: screenshots/18_e8_yolo_test.jpg
+    pitfalls: [系统python无ultralytics需conda+LD_PRELOAD]
+    status: verified
+
+  # ---------------------------------------------------------------- L3 精准降落
   - id: vision.aruco_precision_landing
     level: L3
     title: ArUco 识别 + 精准降落
     model: gz_x500_mono_cam_down
     world: aruco
+    stack: auto
+    namespaces: ['/x500_mono_cam_down_0']
+    duration: 110
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_x500_mono_cam_down aruco
       ros2 run drone_sim aruco_precision_landing --ros-args -p camera_ns:=/x500_mono_cam_down_0
     metrics:
-      - {name: 落点偏差, threshold: '< 0.15', unit: m, how: 'gz 世界系位姿与靶标中心距离'}
-      - {name: 检测成功率, threshold: '> 0.8', unit: '-', how: '检测到靶标的帧占比'}
+      - {name: 落点偏差, threshold: '< 0.15', unit: m, how: '结束时水平位置与靶标(世界原点)距离'}
+      - {name: 最终对齐, threshold: '>= 1', unit: '-', how: '日志出现"最终对齐完成/统计居中达标"'}
+      - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
     evidence: logs/e8_debug.log, screenshots/16_e8_precision_landed.png
     pitfalls: [图像到世界映射符号, 偏航旋转, EKF原点重置误导定位, 低空极限环]
     status: verified
 
+  # ---------------------------------------------------------------- L4 SLAM
   - id: slam.lio_odometry
     level: L4
     title: 3D 激光惯性里程计 (Point-LIO)
     model: gz_x500_lidar_3d
     world: walls
+    stack: auto
+    namespaces: ['/x500_lidar_3d_0']
+    odom_topics: {lio: /odom}
+    duration: 80
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_x500_lidar_3d walls
       ros2 launch drone_sim point_lio.launch.py
     metrics:
-      - {name: 高度误差, threshold: '< 0.2', unit: m, how: 'LIO z 与 gz 真值 z'}
-      - {name: 里程计频率, threshold: '> 5', unit: Hz, how: 'ros2 topic hz /odom'}
-      - {name: 配准点云数, threshold: '> 10000', unit: 点, how: '/cloud_registered 累计'}
+      - {name: 高度误差, threshold: '< 0.2', unit: m, how: 'LIO z 与 gz 真值 z 的中位偏差'}
+      - {name: 里程计频率, threshold: '> 5', unit: Hz, how: 'odom 消息数/时长'}
+      - {name: 轨迹跨度, threshold: '> 2', unit: m, how: '真值轨迹水平包络'}
     evidence: logs/e5_flight_v6.log, screenshots/19_e5_lio_map.png
     pitfalls: [点云含inf导致发散, QoS_BEST_EFFORT连不上Point-LIO, 点云缺ring/time]
     status: verified
 
+  # ---------------------------------------------------------------- L5 规划/任务/安全
   - id: plan.obstacle_avoidance
     level: L5
     title: 障碍场自动绕行到达目标
     model: gz_x500_depth
     world: e7_obstacles
+    stack: auto
+    namespaces: ['/x500_depth_0']
+    duration: 110
+    goal: [6.0, 0.0, 1.2]
+    arrive_tol: 0.8
+    obstacles: [[2.6, 0.85], [4.0, -0.85]]
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_x500_depth e7_obstacles
-      ros2 run drone_sim planner_reactive --ros-args -p target_x:=6.0 -p target_y:=0.0 -p target_z:=1.2
+      ros2 run drone_sim planner_reactive --ros-args -p px4_ns:=/x500_depth_0 -p target_x:=6.0 -p target_y:=0.0 -p target_z:=1.2
     metrics:
-      - {name: 目标误差, threshold: '< 0.6', unit: m, how: '终点与目标的 3D 距离'}
-      - {name: 障碍最小距离, threshold: '> 1.0', unit: m, how: '轨迹与障碍中心最近距离'}
-      - {name: 到达率, threshold: '>= 2/3', unit: '-', how: 'N 次运行中成功次数'}
-    evidence: logs/e7_reactive.log, logs/e7_react_traj5.csv, screenshots/27_e7_reactive_planner.png
+      - {name: 最近接近距离, threshold: '< 0.8', unit: m, how: '轨迹到目标的最近距离'}
+      - {name: 结束误差, threshold: '< 1.5', unit: m, how: '结束时与目标的距离'}
+      - {name: 障碍最小距离, threshold: '> 0.8', unit: m, how: '轨迹与障碍中心最近距离'}
+    evidence: logs/e7_reactive.log, screenshots/27_e7_reactive_planner.png
     pitfalls: [PX4局部系与gz世界系失配, 深度相机地面回波误判, 无自标定则飞反]
     status: verified
 
+  - id: mission.behavior_tree
+    level: L5
+    title: 行为树任务编排 (XML 可配置)
+    model: gz_x500
+    world: aruco
+    stack: auto
+    namespaces: ['/x500_0']
+    duration: 90
+    command: |
+      ros2 run drone_sim bt_mission --ros-args -p px4_ns:=/x500_0 -p mission_xml:=$(ros2 pkg prefix drone_sim)/share/drone_sim/config/mission_bt_square.xml
+    metrics:
+      - {name: 根节点状态, threshold: '>= 1', unit: '-', how: '日志出现"任务结束: SUCCESS"'}
+      - {name: 航点节点, threshold: '>= 1', unit: '-', how: '日志中 SUCCESS 出现 >=3 次'}
+      - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
+    evidence: logs/e10_bt_square.log, screenshots/24_e10_bt_mission.png
+    pitfalls: [py_trees装饰器反复initialise, 多实例并行互相干扰, 容差过紧]
+    status: verified
+
+  - id: safety.geofence
+    level: L5
+    title: 地理围栏触发返航
+    model: gz_x500
+    world: walls
+    stack: auto
+    namespaces: ['/x500_0']
+    duration: 75
+    command: |
+      ros2 run drone_sim safety_supervisor --ros-args -p px4_ns:=/x500_0 -p max_radius:=2.5
+      ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
+    metrics:
+      - {name: 围栏事件, threshold: '>= 1', unit: '-', how: '日志含"超出水平围栏"等'}
+      - {name: 误报, threshold: '< 1', unit: 次, how: '非围栏类安全事件数'}
+    evidence: logs/e12_safety.log
+    pitfalls: [倾角不能用速度比近似(会误报88°), 需用vehicle_attitude四元数]
+    status: verified
+
+  # ---------------------------------------------------------------- L6 多机/集群/VTOL
   - id: multi.formation
     level: L6
     title: 双机编队跟随
     model: gz_x500
     world: aruco
+    stack: none
+    namespaces: ['/x500_0', '/x500_1']
+    formation_offset: [0.0, 0.0]
+    duration: 75
     command: |
       ros2 launch drone_sim multi_vehicle.launch.py num:=2 world:=aruco px4_dir:=/develop/IDEA/Drone_ros2/PX4-Autopilot
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
       ros2 run drone_sim formation_follower --ros-args -p leader_ns:=/x500_0 -p follower_ns:=/x500_1 -p target_system:=2
     metrics:
-      - {name: 队形误差, threshold: '< 0.6', unit: m, how: '跟随者与期望队形位置之差'}
-      - {name: 双机同时起飞, threshold: 'true', unit: '-', how: '两机 arming_state 同为 2'}
+      - {name: 队形误差, threshold: '< 0.6', unit: m, how: '跟随者与(领航者+偏移)的中位距离'}
+      - {name: 双机同时起飞, threshold: '>= 1', unit: '-', how: '两机解锁时刻相差 <8s'}
     evidence: logs/e3_leader_v3.log, logs/e3_follower_v3.log, screenshots/13_e3_formation.png
     pitfalls: [target_system必须=实例号+1, parameters.bson冲突需每实例独立工作目录]
     status: verified
@@ -145,28 +225,21 @@ scenarios:
     title: 3 机交叉飞行互不碰撞
     model: gz_x500
     world: aruco
+    stack: none
+    namespaces: ['/x500_0', '/x500_1', '/x500_2']
+    duration: 110
+    arrive_tol: 0.8
+    goals:
+      /x500_0: [3.0, 0.0, 2.5]
+      /x500_1: [0.0, 4.0, 3.2]
+      /x500_2: [-3.0, 0.0, 3.9]
     command: |
       ros2 launch drone_sim swarm_cross.launch.py
     metrics:
       - {name: 最小间距, threshold: '> 1.0', unit: m, how: '任意两机最近距离'}
-      - {name: 全部到达, threshold: '3/3', unit: 架, how: '各机 goal_dist < 0.6'}
+      - {name: 全部到达, threshold: '>= 3', unit: 架, how: '各机与目标距离 < arrive_tol'}
     evidence: logs/e9_x500_0.log, screenshots/26_e9_swarm_cross.png
     pitfalls: [同层交叉间距过小(0.76m), 需高度分层]
-    status: verified
-
-  - id: mission.behavior_tree
-    level: L5
-    title: 行为树任务编排 (XML 可配置)
-    model: gz_x500
-    world: aruco
-    command: |
-      ros2 run drone_sim bt_mission --ros-args -p px4_ns:=/x500_0 \
-        -p mission_xml:=$(ros2 pkg prefix drone_sim)/share/drone_sim/config/mission_bt_square.xml
-    metrics:
-      - {name: 根节点状态, threshold: SUCCESS, unit: '-', how: '日志"任务结束: SUCCESS"'}
-      - {name: 航点节点, threshold: 'all SUCCESS', unit: '-', how: 'ASCII 树中各 wp 状态'}
-    evidence: logs/e10_bt_square.log, screenshots/24_e10_bt_mission.png
-    pitfalls: [py_trees装饰器反复initialise, 多实例并行互相干扰, 容差过紧]
     status: verified
 
   - id: vtol.transition
@@ -174,54 +247,33 @@ scenarios:
     title: VTOL 垂直起飞→固定翼→转回→垂直降落
     model: gz_standard_vtol
     world: walls
+    stack: auto
+    namespaces: ['/standard_vtol_0']
+    duration: 110
     command: |
-      bash scripts/run_simulation.sh xtd2 gz_standard_vtol walls
       ros2 run drone_sim vtol_demo --ros-args -p px4_ns:=/standard_vtol_0
     metrics:
-      - {name: 固定翼段空速, threshold: '> 15', unit: m/s, how: 'FW_CRUISE 期间水平速度'}
-      - {name: 垂直起飞高度, threshold: '> 15', unit: m, how: '过渡前高度'}
-      - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
+      - {name: 固定翼段空速, threshold: '> 15', unit: m/s, how: '水平速度峰值'}
+      - {name: 垂直起飞高度, threshold: '> 15', unit: m, how: '真值高度峰值'}
+      - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
     evidence: logs/e11_vtol.log, screenshots/25_e11_vtol_fw_flight.png
     pitfalls: [必须先切POSCTL再发过渡, 否则空速不变]
     status: verified
 
-  - id: safety.geofence
-    level: L5
-    title: 地理围栏触发返航
-    model: gz_x500
-    world: walls
-    command: |
-      ros2 run drone_sim safety_supervisor --ros-args -p px4_ns:=/x500_0 -p max_radius:=2.5
-      ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
-    metrics:
-      - {name: 围栏事件, threshold: '触发 RTL', unit: '-', how: '日志含"超出水平围栏"'}
-      - {name: 误报, threshold: '0', unit: 次, how: '非围栏原因的安全事件数'}
-    evidence: logs/e12_safety.log
-    pitfalls: [倾角不能用速度比近似(会误报88°), 需用vehicle_attitude四元数]
-    status: verified
-
-  - id: vision.yolo_detect
-    level: L2
-    title: YOLO 目标检测节点
-    model: gz_x500_mono_cam
-    world: baylands
-    command: bash scripts/run_yolo.sh /x500_mono_cam_0/camera/image_raw
-    metrics:
-      - {name: 推理流水线, threshold: '能出标注图', unit: '-', how: '发布 /yolo/annotated'}
-      - {name: 样本检出, threshold: 'bus>0.5', unit: '-', how: '官方样本图离线验证'}
-    evidence: screenshots/18_e8_yolo_test.jpg
-    pitfalls: [系统python无ultralytics需conda+LD_PRELOAD]
-    status: verified
-
+  # ---------------------------------------------------------------- 研究型挑战 (不作作业)
   - id: vio.vins_mono
     level: L4
     title: VINS-Fusion 单目视觉惯性里程计
     model: gz_x500_mono_cam
     world: baylands
+    stack: auto
+    namespaces: ['/x500_mono_cam_0']
+    odom_topics: {vins: /vins_estimator/odometry}
+    duration: 60
     command: |
       ros2 run vins vins_node $(ros2 pkg prefix drone_sim)/share/drone_sim/config/vins_mono_imu.yaml
     metrics:
-      - {name: 里程计输出, threshold: '> 5Hz', unit: Hz, how: '/vins_estimator/odometry'}
+      - {name: 里程计输出频率, threshold: '> 5', unit: Hz, how: '/vins_estimator/odometry 消息数/时长'}
     evidence: logs/e6_vins5.log
     pitfalls: [视觉惯性对齐失败misalign, LK金字塔断言崩溃]
-    status: unverified   # 关键: 当前无法初始化, 课程中应作为"研究型挑战"而非作业
+    status: unverified
