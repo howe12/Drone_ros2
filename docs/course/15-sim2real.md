@@ -12,7 +12,7 @@
 | 项 | 载体 |
 |---|---|
 | 安全监督框架 | `safety_supervisor.py`（第 11 章：围栏/速度/倾角/急停） |
-| Sim2Real 指南 | [docs/SIM2REAL.md](../SIM2REAL.md) |
+| Sim2Real 指南 | [docs/SIM2REAL.md](SIM2REAL.md) |
 | 前置检查脚本 | `scripts/sim2real_check.sh`（9 项检查 + 生成参数模板） |
 | 参数模板 | `docs/px4_params_template.txt` |
 

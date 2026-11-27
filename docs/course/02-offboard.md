@@ -71,7 +71,7 @@ class MyMission(Node):
             self.px4.land()
 ```
 
-### API 速查（完整表见[平台契约](../PLATFORM_API.md)）
+### API 速查（完整表见[平台契约](PLATFORM_API.md)）
 
 | 成员 | 说明 |
 |---|---|

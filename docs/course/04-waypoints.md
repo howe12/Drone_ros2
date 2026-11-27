@@ -65,7 +65,7 @@ waypoints:                       # NED 坐标, z 负值=高度
 ![walls 世界](images/09_scene_walls.png)
 
 切换：`bash scripts/run_simulation.sh xtd2 <机型> <世界>`（补丁 0009 参数化）。
-完整画廊见[场景文档](../SCENARIOS.md)。
+完整画廊见[场景文档](SCENARIOS.md)。
 
 ## 4.4 故障实验室：EKF 原点重置与"贴地爬行"
 
