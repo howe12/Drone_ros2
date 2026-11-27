@@ -16,13 +16,30 @@
 
 ## 学习目标
 
-| 维度 | ❌ 学习前 | ✅ 学习后 |
+| 维度 | 学习前 | 学习后 |
 |---|---|---|
 | 认知定位 | 以为仿真就是"打开 Gazebo 看个动画" | 理解 Gazebo 只是物理世界，飞控另有其人 |
 | 链路理解 | 说不清 PX4、Gazebo、ROS2 谁跟谁说话 | 能画出 `Gazebo ↔ PX4 ↔ Agent ↔ 你的节点` 四段链路 |
 | 环境能力 | 环境装到哪一步全靠运气 | 能用锁版本+补丁的方式，可复现地还原环境 |
 | 动手能力 | 只会复制别人的命令 | 能改参数跑出不同高度/半径的飞行 |
 | 排障能力 | 报错就懵 | 能定位"端口被占/缺库/解锁被拒"三类起步故障 |
+
+## 前置知识
+
+读者需要会 Linux 基本命令（`cd`、`ls`、`grep`）和 Python 基础语法。本章不要求任何 ROS2 或 PX4 经验，下面这些概念会在正文中首次出现时就地解释。
+
+## 本章涉及的新概念
+
+| 术语 | 一句话解释 | 详细说明 |
+|---|---|---|
+| **Gazebo Harmonic** | 仿真器，负责物理、传感器和画面；课程里运行 `gz sim` | 1.1 节 |
+| **PX4 SITL** | 飞控固件的"机上仿真"版本，和真机同一份源码，只是编译成 Linux 程序 | 1.1 节 |
+| **ROS2 节点** | 你写的任务程序，通过话题收发消息 | 1.1 节 |
+| **话题（Topic）** | 命名的消息通道；发布者写、订阅者读，例如 `/x500_0/fmu/out/vehicle_status` | 1.2 节 |
+| **MicroXRCEAgent** | 把 PX4 的 uXRCE-DDS 协议转成 ROS2 能直接用的 DDS 话题的代理程序 | 1.2 节 |
+| **命名空间** | 多机时区分不同飞机的前缀，如 `/x500_0`；由机型名去掉 `gz_` 加实例号得到 | 1.3 节 |
+| **Offboard 模式** | 由外部程序接管控制权的飞行模式，本章先用，第 2 章讲机制 | 1.3 节 |
+| **判分指标** | 可核验的阈值（如高度误差 < 0.4m），由 `tools/grade.py` 自动执行 | 实验 / 第 16 章 |
 
 ## 📖 主体内容
 
@@ -42,9 +59,20 @@ Gazebo 里的模型只是飞机的物理替身，决定它怎么飞的是 PX4 �
 
 PX4 通过 uXRCE-DDS 与外部通信，ROS2 节点使用 DDS，两者之间需要代理：
 
-```
-Gazebo ──传感器/执行器── PX4 SITL ──uXRCE-DDS── MicroXRCEAgent ──DDS── 你的 ROS2 节点
-```
+<!-- IMAGE_PLACEHOLDER
+id: fig-ch01-data-link
+caption: 图 1.1 课程数据链路：Gazebo、PX4 SITL、MicroXRCEAgent 与 ROS2 节点之间的消息方向
+alt: 数据链路示意图，Gazebo 提供传感器与执行器接口，PX4 SITL 经 uXRCE-DDS 连接 MicroXRCEAgent，Agent 再以 DDS 连接 ROS2 节点
+prompt: |
+  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。横向四段架构图：
+  第 1 段标 "Gazebo Harmonic（物理世界：模型、传感器、画面）"；
+  第 2 段标 "PX4 SITL（飞控固件：姿态控制、EKF）"，与第 1 段之间用双向箭头标 "传感器数据 / 电机指令"；
+  第 3 段标 "MicroXRCEAgent（协议代理，UDP 8888）"，与第 2 段之间双向箭头标 "uXRCE-DDS"；
+  第 4 段标 "ROS2 节点（你的任务程序）"，与第 3 段之间双向箭头标 "DDS 话题 /fmu/..."。
+  在第 4 段上方用虚线框标注示例话题 "/x500_0/fmu/out/vehicle_status"。
+  组件用圆角矩形，箭头方向清晰，配色只用蓝灰两色。
+-->
+![图 1.1 课程数据链路](images/PLACEHOLDER-fig-ch01-data-link.png)
 
 没有 Agent，节点看不到 `/fmu/...` 话题，PX4 也收不到指令。可以用下面的命令确认链路是否通：
 
@@ -53,6 +81,8 @@ ros2 topic list | grep fmu
 ```
 
 栈未启动时该命令无输出；栈启动后应能看到 `/x500_0/fmu/...` 系列话题。
+
+关于"话题"：可以把它理解成按名字区分的消息通道，程序向某个名字发布消息，其他程序从同一个名字读取。`/x500_0/fmu/out/vehicle_status` 就是 PX4 对外发布自身状态（是否解锁、当前模式）的通道。
 
 ### 1.3 `run_simulation.sh xtd2` 做了什么
 
@@ -111,9 +141,32 @@ ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0 -p circle_duratio
 [drone_sim_offboard_demo]: 已降落并上锁, 演示完成 ✔
 ```
 
-Gazebo 窗口中应看到飞机垂直爬升到 5m，随后降落。
+Gazebo 窗口中应看到飞机垂直爬升到 5m，随后降落。各阶段对应的可观察状态如下：
 
-![首飞](images/04_xtd2_x500_takeoff.png)
+| 阶段 | 日志标志 | `vehicle_status` 变化 | Gazebo 画面 |
+|---|---|---|---|
+| 预流与请求 | `请求 Offboard 模式 + 解锁 ...` | `nav_state` 变为 Offboard(14) | 飞机静止在地面 |
+| 起飞 | `已解锁并进入 Offboard, 起飞至 5.0 m` | `arming_state` 由 1 变 2 | 螺旋桨转动，高度上升 |
+| 到达高度 | `到达目标高度, 开始画圆` | 保持解锁与 Offboard | 悬停在约 5m |
+| 降落上锁 | `已降落并上锁, 演示完成 ✔` | `arming_state` 回到 1 | 回到地面，桨停转 |
+
+<!-- IMAGE_PLACEHOLDER
+id: fig-ch01-flight-phases
+caption: 图 1.2 首飞四个阶段对应的日志、状态位与画面变化
+alt: 首飞阶段对照图，横轴为时间，标出预流请求、起飞、到达高度、降落上锁四个阶段，并对应日志标志、arming_state/nav_state 与 Gazebo 画面
+prompt: |
+  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。
+  横向时间轴分为四段，依次标注："1 预流与请求"、"2 起飞"、"3 到达高度"、"4 降落上锁"。
+  每段下方用三行小字注明：
+  第 1 段 "日志: 请求 Offboard 模式 + 解锁；状态: nav_state=14；画面: 静止在地面"；
+  第 2 段 "日志: 已解锁并进入 Offboard；状态: arming_state 1→2；画面: 高度上升"；
+  第 3 段 "日志: 到达目标高度；状态: 保持解锁；画面: 悬停约 5m"；
+  第 4 段 "日志: 已降落并上锁；状态: arming_state=1；画面: 回到地面"。
+  在右侧画一个简化四旋翼高度曲线，随四段先平、上升、平、下降。配色只用蓝灰，标注清晰。
+-->
+![图 1.2 首飞阶段与可观察状态](images/PLACEHOLDER-fig-ch01-flight-phases.png)
+
+![首飞截图](images/04_xtd2_x500_takeoff.png)
 
 **分析：用判分系统给出可核验结果**
 
