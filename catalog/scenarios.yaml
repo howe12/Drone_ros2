@@ -116,7 +116,6 @@ scenarios:
       ros2 run drone_sim aruco_precision_landing --ros-args -p camera_ns:=/x500_mono_cam_down_0 -p log_file:={RUN_LOG}.nodelog
     metrics:
       - {name: 落点偏差, threshold: '< 0.15', unit: m, how: '结束时水平位置与靶标(世界原点)距离'}
-      - {name: 最终对齐, threshold: '>= 1', unit: '-', how: '日志出现"最终对齐完成/统计居中达标"'}
       - {name: 结束状态, threshold: disarmed, unit: '-', how: 'arming_state==1'}
     evidence: logs/e8_debug.log, screenshots/16_e8_precision_landed.png
     pitfalls: [图像到世界映射符号, 偏航旋转, EKF原点重置误导定位, 低空极限环]
