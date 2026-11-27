@@ -117,8 +117,12 @@
 
 ### P2 — 进阶方向（按需）
 
-**E9. 集群规划** ✅ **已完成 (2026-11-26, Issue #9)**
-⚠️ **结论更正 2026-11-27**: 实际 2/3 到达（x500_0 直线飞走 52m），非 3/3；最小间距 1.35m；Issue #9 已重新打开
+**E9. 集群规划** ⚠️ **未达标 (Issue #9 已重新打开, 2026-11-27)**
+
+> **结论更正**: 原记录"3 机全部到达 / 最小间距 1.12m"有误。
+> 复查历史日志为 **2/3 到达**（`x500_0` 直线飞走，goal_dist=52.91）；最小间距 **1.35m**。
+> 自动判定复测：最小间距 1.35m ✅ / **到达 0/3** ❌。录屏 `videos/swarm.cross_3uav.gif`。
+
 - 分布式集群智能体 drone_sim/swarm_agent.py: 每机广播世界位姿 → 势场法(目标吸引+邻居斥力)
   → 速度控制 (PX4 Offboard velocity, 世界系速度按航向转到机体系)
 - 启动: launch/swarm_cross.launch.py (multi_vehicle 支持自定义 spawn 队形)
@@ -126,6 +130,7 @@
 - 实测: 三机全部解锁飞行并到达对向目标, **最小间距 1.12m 无碰撞** (用时 88s)
 - 日志 logs/e9_x500_{0,1,2}.log, 截图 26
 - 说明: 未用 ego_planner_swarm (上游 ROS2 移植仅单机), 采用自研分布式势场避碰达到同等验收目标
+
 **E10. 行为树任务层** ✅ **已完成 (2026-11-26, Issue #10)**
 - py_trees 行为树: 动作节点 Takeoff / GotoWaypoint / Hover / Land / RTL / EmergencyLand / WaitArmed,
   条件 AltitudeAbove, 装饰器 Timeout; 复合 Sequence/Selector/Parallel
@@ -134,8 +139,13 @@
 - 实测: 方形任务 4 航点全 SUCCESS, 起飞 3m→四边→自动降落 (logs/e10_bt_square.log, 截图 24)
 - 已知限制: 故障注入演示 (500m 不可达航点) 未稳定触发 FAILURE→应急分支,
   多实例并行会互相干扰; 后续需单实例隔离与更严格的不可达判据
-**E11. 固定翼/VTOL** ✅ **已完成 (2026-11-26, Issue #11)**
-⚠️ **结论更正 2026-11-27**: 状态机可跑通但固定翼段空速仅 0.1m/s（FW 段不发前向指令），原 95.9m/s 疑为失控俯冲；Issue #11 已重新打开
+
+**E11. 固定翼/VTOL** ⚠️ **未达标 (Issue #11 已重新打开, 2026-11-27)**
+
+> **结论更正**: 状态机可完整跑通（TAKEOFF 18.1m → FW_CRUISE → MC → LAND），
+> 但固定翼段**空速仅 0.1 m/s**；原记录的 95.9 m/s 疑为失控俯冲。
+> 根因：`vtol_demo` 的 `FW_CRUISE` 段只观察、不发前向速度指令。录屏 `videos/vtol.transition.gif`。
+
 - px4-ros2-interface-lib (Auterion, release/1.16 @b87cc26) 编译集成成功
   - 补丁0018: px4_msgs 1.15 无 lat_lon_valid/alt_valid 字段的兼容处理
   - **模式注册实测通过**: 'Go-to Example' (mode id 确认, RegisterExtComponentReply, arming check id=125)
@@ -144,6 +154,7 @@
   多旋翼垂直起飞 18m → POSCTL+DO_VTOL_TRANSITION(4) → **固定翼前飞** (空速 1.7→95.9/31.9 m/s)
   → 30s 巡航 → DO_VTOL_TRANSITION(3) → 垂直降落, 全程自动
 - 日志 logs/e11_vtol.log, 截图 25; 关键: 必须先切 POSCTL 再发过渡命令, 否则 PX4 不执行
+
 **E12. 实机部署 (sim2real)** 🟡 **仿真侧完成, Issue #12 保持 open (无真机)**
 - **安全框架** drone_sim/safety_supervisor.py: 地理围栏(半径/高度)/速度/倾角/外部急停
   → 触发 RTL 或 LAND; 实测: max_radius=2.5m 时正确触发"超出水平围栏 3.1m -> RTL", 无误报

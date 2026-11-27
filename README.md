@@ -249,7 +249,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 | `mission.behavior_tree` 行为树 | ✅ **PASS** | **4/4** 航点 / 根节点 SUCCESS | ≥3 / SUCCESS | [▶](videos/mission.behavior_tree.mp4) |
 | `safety.geofence` 地理围栏 | ✅ **PASS** | 围栏触发 / 0 误报 | 触发 | — |
 | `multi.formation` 双机编队 | ✅ **PASS**（自报口径）| 队形误差 **0.02m** | <0.6m | — |
-| `swarm.cross_3uav` 3 机集群交叉 | ❌ 1/2 | 最小间距 1.35m ✅ / **到达 0/3** ❌ | >1.0m / 3/3 | [▶](videos/swarm.cross_3uav.mp4) |
+| `swarm.cross_3uav` 3 机集群交叉 | ❌ 1/2 | 最小间距 **1.2~1.35m** ✅ / **到达 0~1/3** ❌ | >1.0m / 3/3 | [▶](videos/swarm.cross_3uav.mp4) |
 | `vtol.transition` VTOL 过渡 | ❌ 2/3 | 高度 19.1m ✅ / **固定翼段空速 2.9m/s** ❌ | >15m/s | [▶](videos/vtol.transition.mp4) |
 | `vio.vins_mono` 视觉惯性里程计 | ❌ 未通过 | 里程计输出 **0 Hz**（算法初始化失败）| >5Hz | — |
 
@@ -257,7 +257,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 
 | 未达标项 | 根因 | 状态 |
 |---|---|---|
-| 集群 0/3 到达 | `x500_0` 直线飞走（机体系速度→世界系方向映射错），与 ego-planner 同源 | Issue #9 已**重新打开** |
+| 集群仅 0~1/3 到达 | `x500_0` 直线飞走（机体系速度→世界系方向映射错），与 ego-planner 同源 | Issue #9 已**重新打开** |
 | VTOL 空速不足 | `vtol_demo` 的 FW_CRUISE 段只观察、不发前向速度指令 | Issue #11 已**重新打开** |
 | VIO 无输出 | VINS 单目视觉惯性初始化失败 | Issue #6 保持 open |
 

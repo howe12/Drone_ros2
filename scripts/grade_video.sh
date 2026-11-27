@@ -32,12 +32,14 @@ for sid in "$@"; do
   GRADE_PID=$!
 
   # 2) 等 Gazebo 窗口出现并置顶 (最多 180s)
-  WINFO=$($PY tools/raise_gz_window.py --wait 180 2>/dev/null)
+  WINFO=$($PY tools/raise_gz_window.py --wait 300 2>/dev/null)
   WID=$(echo "$WINFO" | awk '{print $1}')
 
   if [ -z "${WID:-}" ]; then
-    echo "  ⚠ 未找到 Gazebo 窗口, 本次不录屏"
+    echo "  ⚠ 未找到 Gazebo 窗口, 本次不录屏 (删除可能存在的旧视频, 避免张冠李戴)"
+    rm -f "$VID" "videos/${sid}.gif"
     wait "$GRADE_PID"
+    REC_OK=0
   else
     # 2.5) 尽力让镜头跟随被测无人机 (服务不存在则忽略, 不影响录制)
     NS=$(grep -aE "^  namespaces:" -A1 "catalog/scenarios.yaml" >/dev/null 2>&1; \
@@ -78,6 +80,7 @@ PYEOF2
     done
     kill -9 "$REC_PID" 2>/dev/null
     wait "$REC_PID" 2>/dev/null
+    REC_OK=1
   fi
 
   verdict=$(grep -aE "^结论:" "$OUT" | tail -1 | sed 's/^结论: //')
@@ -88,7 +91,7 @@ PYEOF2
   echo "  视频: $VID (${size:-无})"
 
   # 6) 生成 GIF 预览 (压缩到约 15s, GitHub README 可内联播放)
-  if [ -f "$VID" ] && [ -s "$VID" ]; then
+  if [ "${REC_OK:-0}" = "1" ] && [ -f "$VID" ] && [ -s "$VID" ]; then
     d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VID" 2>/dev/null | cut -d. -f1)
     factor=$($PY -c "print(round(max(1.0, ${d:-60}/15.0), 2))")
     ffmpeg -loglevel error -y -i "$VID" \
