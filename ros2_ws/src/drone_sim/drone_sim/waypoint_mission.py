@@ -33,6 +33,7 @@ from px4_msgs.msg import (
     OffboardControlMode, TrajectorySetpoint, VehicleCommand,
     VehicleLocalPosition, VehicleStatus,
 )
+from drone_sim.px4_interface import PX4Interface
 
 
 def generate_pattern(name, args, alt):
@@ -78,7 +79,8 @@ class WaypointMission(Node):
         self.declare_parameter('takeoff_altitude', 5.0)
         self.declare_parameter('cruise_speed', 1.5)         # m/s
         self.declare_parameter('arrive_tol', 0.35)          # 到点容差 m
-        self.declare_parameter('pattern', 'square')         # 无 mission_file 时的默认模式
+        self.declare_parameter('pattern', 'square')
+        self.declare_parameter('target_system', 1)   # 多机时 = 实例号+1         # 无 mission_file 时的默认模式
 
         prefix = self.get_parameter('topic_prefix').value
         self.alt = self.get_parameter('takeoff_altitude').value
@@ -106,24 +108,11 @@ class WaypointMission(Node):
         self.get_logger().info(f'任务加载: {len(self.wps)} 个航点, 高度 {self.alt}m, '
                                f'巡航 {self.speed}m/s, 前缀 "{prefix}"')
 
-        # ---- QoS: PX4 侧 best-effort (E1 教训: RELIABLE 会 SHM 死锁) ----
-        px4_pub_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
-                                 durability=DurabilityPolicy.VOLATILE,
-                                 history=HistoryPolicy.KEEP_LAST, depth=10)
-        px4_sub_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
-                                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                                 history=HistoryPolicy.KEEP_LAST, depth=5)
-
-        self.pub_mode = self.create_publisher(
-            OffboardControlMode, f'{prefix}/fmu/in/offboard_control_mode', px4_pub_qos)
-        self.pub_sp = self.create_publisher(
-            TrajectorySetpoint, f'{prefix}/fmu/in/trajectory_setpoint', px4_pub_qos)
-        self.pub_cmd = self.create_publisher(
-            VehicleCommand, f'{prefix}/fmu/in/vehicle_command', px4_pub_qos)
-        self.create_subscription(VehicleStatus, f'{prefix}/fmu/out/vehicle_status',
-                                 self.cb_status, px4_sub_qos)
-        self.create_subscription(VehicleLocalPosition, f'{prefix}/fmu/out/vehicle_local_position',
-                                 self.cb_pos, px4_sub_qos)
+        # ---- PX4 统一接口 (QoS/心跳/解锁/EKF 门控全在 px4_interface 内) ----
+        self.px4 = PX4Interface(
+            self, ns=prefix,
+            target_system=self.get_parameter('target_system').value,
+            on_position=self.cb_pos)
 
         # RViz 可视化 (reliable 默认 QoS)
         self.pub_path = self.create_publisher(Path, f'{prefix}/mission/path', 10)
@@ -132,8 +121,6 @@ class WaypointMission(Node):
         self.path_msg.header.frame_id = 'map'
         self.publish_waypoint_markers()
 
-        self.status = None
-        self.pos = None
         self.state = 'INIT'
         self.tick = 0
         self.wp_idx = 0
@@ -146,12 +133,18 @@ class WaypointMission(Node):
         self.reset_stable_ticks = 0
         self.create_timer(0.1, self.loop)
 
-    # ---- 回调 ----
-    def cb_status(self, msg):
-        self.status = msg
+    # ---- 状态访问 (委托给接口) ----
+    @property
+    def status(self):
+        return self.px4.status
 
+    @property
+    def pos(self):
+        return self.px4.pos
+
+    # ---- 回调 ----
     def cb_pos(self, msg):
-        self.pos = msg
+        # 位置由 PX4Interface 保存, 这里只做轨迹记录
         if self.tick % 5 == 0 and msg.z_valid:   # 2Hz 记录实飞轨迹
             p = PoseStamped()
             p.header.frame_id = 'map'
@@ -197,27 +190,13 @@ class WaypointMission(Node):
 
     # ---- 发布工具 ----
     def publish_mode(self):
-        m = OffboardControlMode()
-        m.position = True
-        m.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-        self.pub_mode.publish(m)
+        pass   # 心跳由 publish_setpoint -> px4.heartbeat_position 统一发布
 
     def publish_setpoint(self):
-        sp = TrajectorySetpoint()
-        sp.position = self.target
-        sp.yaw = self.target_yaw
-        sp.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-        self.pub_sp.publish(sp)
+        self.px4.heartbeat_position(*self.target, yaw=self.target_yaw)
 
     def send_command(self, command, p1=0.0, p2=0.0, p7=0.0):
-        c = VehicleCommand()
-        c.command = command
-        c.param1, c.param2, c.param7 = p1, p2, p7
-        c.target_system = c.target_component = 1
-        c.source_system = c.source_component = 1
-        c.from_external = True
-        c.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-        self.pub_cmd.publish(c)
+        self.px4.send_command(command, p1, p2, p7=p7)
 
     def request_offboard_and_arm(self):
         if self.tick - self.last_cmd_tick < 10:
@@ -241,19 +220,11 @@ class WaypointMission(Node):
         offboard = self.status.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD
 
         if self.state == 'INIT':
-            # EKF 原点稳定检查: 计数器 5s 无变化才允许解锁
-            if self.pos is not None:
-                cur_reset = (self.pos.xy_reset_counter, self.pos.z_reset_counter)
-                if cur_reset != self.last_reset:
-                    self.last_reset = cur_reset
-                    self.reset_stable_ticks = 0
-                else:
-                    self.reset_stable_ticks += 1
-            if self.tick > 20 and self.reset_stable_ticks >= 50:
+            # EKF 原点稳定门控 (由 PX4Interface 统一跟踪)
+            if self.tick > 20 and self.px4.ekf_stable:
                 self.request_offboard_and_arm()
             elif self.tick % 50 == 0:
-                self.get_logger().info(
-                    f'等待 EKF 原点稳定 ({self.reset_stable_ticks}/50 ticks)')
+                self.get_logger().info('等待 EKF 原点稳定 ...')
             if armed and offboard:
                 self.state = 'TAKEOFF'
                 self.target = [0.0, 0.0, -self.alt]

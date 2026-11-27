@@ -1,0 +1,115 @@
+# 自动生成, 请勿手改 —— 运行 python3 tools/gen_params.py 重新生成
+# 用途: 课程作者据此生成"调参练习", 无需读源码
+nodes:
+  aruco_precision_landing:
+    params:
+      align_tol_px: {type: float, default: 25.0}
+      camera_ns: {type: str, default: '/x500_mono_cam_down_0'}
+      marker_id: {type: int, default: 42}
+      servo_gain: {type: float, default: 0.004}
+      servo_sign_x: {type: float, default: -1.0}
+      servo_sign_y: {type: float, default: 1.0}
+      takeoff_altitude: {type: float, default: 3.0}
+      target_system: {type: int, default: 1}
+  bt_mission:
+    params:
+      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e10_bt.log'}
+      mission_xml: {type: str, default: ''}
+      px4_ns: {type: str, default: '/x500_0'}
+      target_system: {type: int, default: 1}
+  ego_bridge:
+    params:
+      cmd_timeout: {type: float, default: 2.0}
+      position_cmd_topic: {type: str, default: '/position_cmd'}
+      px4_ns: {type: str, default: '/x500_depth_0'}
+      target_system: {type: int, default: 1}
+  formation_follower:
+    params:
+      cruise_speed: {type: float, default: 2.5}
+      follower_ns: {type: str, default: '/x500_1'}
+      leader_ns: {type: str, default: '/x500_0'}
+      offset_x: {type: float, default: -2.0}
+      offset_y: {type: float, default: 2.0}
+      offset_z: {type: float, default: 0.0}
+      spawn_x: {type: float, default: 2.0}
+      takeoff_altitude: {type: float, default: 5.0}
+      target_system: {type: int, default: 2}
+  lidar3d_adapter:
+    params:
+      input_topic: {type: str, default: '/x500_lidar_3d_0/lidar_3d/points'}
+      output_topic: {type: str, default: '/velodyne_points'}
+      scan_lines: {type: int, default: 16}
+      scan_period: {type: float, default: 0.1}
+      vfov_deg: {type: float, default: 30.0}
+  odom_to_tf:
+    params:
+      base_frame: {type: str, default: 'base_link'}
+      odom_frame: {type: str, default: 'odom'}
+      odom_topic: {type: str, default: '/x500_lidar_2d_0/odometry'}
+  offboard_demo:
+    params:
+      circle_duration: {type: float, default: 25.0}
+      circle_radius: {type: float, default: 3.0}
+      circle_speed: {type: float, default: 0.3}
+      takeoff_altitude: {type: float, default: 5.0}
+  planner_reactive:
+    params:
+      cruise_z: {type: float, default: 1.2}
+      goal_tol: {type: float, default: 0.5}
+      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e7_reactive.log'}
+      max_speed: {type: float, default: 1.2}
+      px4_ns: {type: str, default: '/x500_depth_0'}
+      safe_dist: {type: float, default: 1.8}
+      target_system: {type: int, default: 1}
+      target_x: {type: float, default: 6.0}
+      target_y: {type: float, default: 0.0}
+      target_z: {type: float, default: 1.2}
+  safety_supervisor:
+    params:
+      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e12_safety.log'}
+      max_altitude: {type: float, default: 25.0}
+      max_radius: {type: float, default: 15.0}
+      max_speed: {type: float, default: 8.0}
+      max_tilt_deg: {type: float, default: 45.0}
+      min_altitude: {type: float, default: 0.15}
+      px4_ns: {type: str, default: '/x500_0'}
+      target_system: {type: int, default: 1}
+  swarm_agent:
+    params:
+      goal_tol: {type: float, default: 0.4}
+      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e9_agent.log'}
+      max_speed: {type: float, default: 1.5}
+      neighbors: {type: str, default: ''}
+      px4_ns: {type: str, default: '/x500_0'}
+      safety_dist: {type: float, default: 2.0}
+      target_system: {type: int, default: 1}
+      target_x: {type: float, default: 3.0}
+      target_y: {type: float, default: 0.0}
+      target_z: {type: float, default: 2.5}
+      timeout: {type: float, default: 90.0}
+  vio_evaluator:
+    params:
+      truth_topic: {type: str, default: '/x500_mono_cam_0/pose'}
+      vins_topic: {type: str, default: '/vins_estimator/odometry'}
+  vtol_demo:
+    params:
+      cruise_alt: {type: float, default: 20.0}
+      fw_leg_time: {type: float, default: 18.0}
+      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e11_vtol.log'}
+      px4_ns: {type: str, default: '/standard_vtol_0'}
+      target_system: {type: int, default: 1}
+  waypoint_mission:
+    params:
+      arrive_tol: {type: float, default: 0.35}
+      cruise_speed: {type: float, default: 1.5}
+      mission_file: {type: str, default: ''}
+      pattern: {type: str, default: 'square'}
+      takeoff_altitude: {type: float, default: 5.0}
+      target_system: {type: int, default: 1}
+      topic_prefix: {type: str, default: ''}
+  yolo_detector:
+    params:
+      conf: {type: float, default: 0.4}
+      image_topic: {type: str, default: '/x500_mono_cam_0/camera/image_raw'}
+      infer_every_n: {type: int, default: 5}
+      model: {type: str, default: ''}
