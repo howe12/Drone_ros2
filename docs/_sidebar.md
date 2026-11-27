@@ -30,6 +30,8 @@
   - [故障实验室（FAQ）](faq.md)
 
 - **附录 · 参考手册**
+  - [课程编写规范](AUTHORING.md)
+  - [章节模板](course/_template.md)
   - [操作手册](OPERATIONS.md)
   - [平台契约 Platform API](PLATFORM_API.md)
   - [场景画廊](SCENARIOS.md)
