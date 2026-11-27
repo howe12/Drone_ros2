@@ -1,6 +1,9 @@
 # Drone_ros2 — 仿真无人机开发项目
 
-> 📖 **开源课程已上线**：[howe12.github.io/Drone_ros2](https://howe12.github.io/Drone_ros2/) —— 16 章阶梯实验（L0 首飞 → L6 集群/VTOL），全部实测验证 + 自动判分。课程源码在 [docs/](docs/README.md)。
+> 📖 **开源课程已上线**：[howe12.github.io/Drone_ros2](https://howe12.github.io/Drone_ros2/) —— L0 首飞 → L6 集群/VTOL 阶梯实验。课程源码在 [docs/](docs/README.md)。
+>
+> ⚠️ **验证状态以本文档的[自动判定表](#验证状态与自动判分)为准**：12 个场景中 **8 个通过、4 个未达标**（集群、VTOL、航点、VIO）。
+> 所有结论都可用 `bash scripts/grade.sh` 复现，不依赖截图。
 
 基于 **PX4 v1.15.4 + ROS2 Humble + Gazebo** 的无人机仿真开发工作区。
 
@@ -196,6 +199,16 @@ INIT → 请求 Offboard+解锁 → TAKEOFF → CIRCLE → LAND → DONE。
 参数: `takeoff_altitude` / `circle_radius` / `circle_speed` / `circle_duration`。
 在此基础上加自己的任务逻辑 (航点、视觉、多机等)。
 
+**写新节点请用统一接口** `drone_sim/px4_interface.py`：QoS、心跳、解锁、EKF 原点门控、
+坐标系换算、VTOL 过渡都收敛在这一个文件里。历史上 8 个节点各写一份，直接造成过
+"多机 2 号机无法解锁 / 与 Point-LIO 连不上 / 遇 GPS 漂移贴地爬行 / 飞反"等故障。
+
+| 文件 | 用途 |
+|---|---|
+| [catalog/scenarios.yaml](catalog/scenarios.yaml) | 场景目录：机型 × 环境 × 应用 + 判定指标（机器可读）|
+| [catalog/params.yaml](catalog/params.yaml) | 参数注册表：14 节点 / 86 参数（`python3 tools/gen_params.py` 自动生成）|
+| [docs/PLATFORM_API.md](docs/PLATFORM_API.md) | 平台契约：接口速查、判定三铁律、新增节点三步 |
+
 ## 版本配套 (重要)
 
 | 组件 | 版本/分支 |
@@ -206,10 +219,61 @@ INIT → 请求 Offboard+解锁 → TAKEOFF → CIRCLE → LAND → DONE。
 | Micro-XRCE-DDS-Agent | main (FastDDS 3.3.x; v2.4.2 的旧依赖已失效) |
 | ROS2 | Humble |
 
-## 已验证 (2026-11-25)
+## 验证状态与自动判分
 
-完整链路实测通过: `Gazebo Classic ↔ PX4 SITL ↔ MicroXRCEAgent ↔ drone_sim`
-- 起飞至 5 m（实测 z=-4.55 m 爬升中）→ 半径 3 m 画圆 25 s（实测轨迹半径 3.08 m）→ 降落并上锁 ✔
+判定不是靠看截图，而是可复现的命令：
+
+```bash
+bash scripts/grade.sh --list                                  # 列出全部场景
+bash scripts/grade.sh --scenario ctrl.takeoff_hover_land --runs 3   # 跑判定
+bash scripts/grade_video.sh vision.aruco_precision_landing    # 判定 + 录屏
+bash scripts/grade_all.sh                                     # 批量跑全部
+```
+
+判定规则（写在 [docs/PLATFORM_API.md](docs/PLATFORM_API.md)）：
+1. **指标化**：每个场景有明确阈值与取数方式，不看"看起来正常"
+2. **N 次通过率**：单次成功不算 PASS，默认 N=3 且 **≥2/3** 才算通过
+   （教训：曾把"单次跑通"记成"已完成"，复测时发现是运气）
+3. **外部真值优先**：位置/精度用 Gazebo 世界系位姿，不用 PX4 局部坐标（EKF 会重置原点）
+
+### 当前结果（2026-11-27 实测，单次运行）
+
+| 场景 | 判定 | 实测指标 | 阈值 | 视频 |
+|---|---|---|---|---|
+| `ctrl.takeoff_hover_land` 起飞-悬停-降落 | ✅ **PASS** | 高度误差 0.21m / 32.5s / 正常上锁 | <0.4m / <75s | — |
+| `ctrl.waypoint_square` 正方形航点 | ❌ 1/3 | 到点误差 **0.71m** / 命中 3/4 | <0.5m / ≥4 | [▶](videos/ctrl.waypoint_square.mp4) |
+| `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 启动成功 / 无异常退出 | — | — |
+| `vision.aruco_precision_landing` 精准降落 | ✅ **PASS** | 落点偏差 **0.028–0.083m** / 正常上锁 | <0.15m | [▶](videos/vision.aruco_precision_landing.mp4) |
+| `slam.lio_odometry` 3D 激光里程计 | ✅ **PASS** | 高度误差 **0.002m** / 9.4Hz / 跨度 3.6m | <0.2m / >5Hz / >2m | — |
+| `plan.obstacle_avoidance` 障碍绕行 | ✅ **PASS** | 最近接近 **0.02m** / 障碍距离 0.99m | <0.8m / >0.8m | — |
+| `mission.behavior_tree` 行为树 | ✅ **PASS** | **4/4** 航点 / 根节点 SUCCESS | ≥3 / SUCCESS | [▶](videos/mission.behavior_tree.mp4) |
+| `safety.geofence` 地理围栏 | ✅ **PASS** | 围栏触发 / 0 误报 | 触发 | — |
+| `multi.formation` 双机编队 | ✅ **PASS**（自报口径）| 队形误差 **0.02m** | <0.6m | — |
+| `swarm.cross_3uav` 3 机集群交叉 | ❌ 1/2 | 最小间距 1.35m ✅ / **到达 0/3** ❌ | >1.0m / 3/3 | [▶](videos/swarm.cross_3uav.mp4) |
+| `vtol.transition` VTOL 过渡 | ❌ 2/3 | 高度 19.1m ✅ / **固定翼段空速 2.9m/s** ❌ | >15m/s | [▶](videos/vtol.transition.mp4) |
+| `vio.vins_mono` 视觉惯性里程计 | ❌ 未通过 | 里程计输出 **0 Hz**（算法初始化失败）| >5Hz | — |
+
+**8 / 12 通过**。未达标的 4 项都是**真实功能问题**，不是判定口径问题（口径问题已在复测中逐个修正）：
+
+| 未达标项 | 根因 | 状态 |
+|---|---|---|
+| 集群 0/3 到达 | `x500_0` 直线飞走（机体系速度→世界系方向映射错），与 ego-planner 同源 | Issue #9 已**重新打开** |
+| VTOL 空速不足 | `vtol_demo` 的 FW_CRUISE 段只观察、不发前向速度指令 | Issue #11 已**重新打开** |
+| 航点到点误差 0.71m | 巡航 1.0 m/s + 到点容差 0.35m 导致超调 | 待调参（不放宽阈值）|
+| VIO 无输出 | VINS 单目视觉惯性初始化失败 | Issue #6 保持 open |
+
+> ⚠️ **自报口径说明**：`multi.formation` 的队形误差取自跟随节点自己打印的日志，
+> 属于"自报指标"，尚未做独立几何校验（已在 `catalog/scenarios.yaml` 的 `how` 字段标注）。
+
+### 录屏（含判定过程）
+
+| 场景 | 录屏 | 说明 |
+|---|---|---|
+| ArUco 精准降落 | [vision.aruco_precision_landing.mp4](videos/vision.aruco_precision_landing.mp4) | 识别靶标 → 视觉伺服居中 → 分三阶段下降 |
+| 行为树任务 | [mission.behavior_tree.mp4](videos/mission.behavior_tree.mp4) | Takeoff → 4×GotoWaypoint(z=3m) → Land |
+| 3 机集群 | [swarm.cross_3uav.mp4](videos/swarm.cross_3uav.mp4) | 三角形交叉，含高度分层 |
+| VTOL 过渡 | [vtol.transition.mp4](videos/vtol.transition.mp4) | 垂直起飞 → 过渡 → 转回 → 降落（含失败的空速问题）|
+| 正方形航点 | [ctrl.waypoint_square.mp4](videos/ctrl.waypoint_square.mp4) | 4 点正方形，含超调问题 |
 
 ### 运行截图
 

@@ -118,6 +118,7 @@
 ### P2 — 进阶方向（按需）
 
 **E9. 集群规划** ✅ **已完成 (2026-11-26, Issue #9)**
+⚠️ **结论更正 2026-11-27**: 实际 2/3 到达（x500_0 直线飞走 52m），非 3/3；最小间距 1.35m；Issue #9 已重新打开
 - 分布式集群智能体 drone_sim/swarm_agent.py: 每机广播世界位姿 → 势场法(目标吸引+邻居斥力)
   → 速度控制 (PX4 Offboard velocity, 世界系速度按航向转到机体系)
 - 启动: launch/swarm_cross.launch.py (multi_vehicle 支持自定义 spawn 队形)
@@ -134,6 +135,7 @@
 - 已知限制: 故障注入演示 (500m 不可达航点) 未稳定触发 FAILURE→应急分支,
   多实例并行会互相干扰; 后续需单实例隔离与更严格的不可达判据
 **E11. 固定翼/VTOL** ✅ **已完成 (2026-11-26, Issue #11)**
+⚠️ **结论更正 2026-11-27**: 状态机可跑通但固定翼段空速仅 0.1m/s（FW 段不发前向指令），原 95.9m/s 疑为失控俯冲；Issue #11 已重新打开
 - px4-ros2-interface-lib (Auterion, release/1.16 @b87cc26) 编译集成成功
   - 补丁0018: px4_msgs 1.15 无 lat_lon_valid/alt_valid 字段的兼容处理
   - **模式注册实测通过**: 'Go-to Example' (mode id 确认, RegisterExtComponentReply, arming check id=125)
