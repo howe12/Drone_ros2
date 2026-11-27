@@ -307,8 +307,8 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 |---|---|
 | 1 要实现的功能 | 飞机自动起飞到 5m、悬停、降落上锁，日志出现"演示完成 ✔" |
 | 2 通信骨架/前置 | 栈已启动；节点发 `/x500_0/fmu/in/{offboard_control_mode, trajectory_setpoint, vehicle_command}`，收 `/x500_0/fmu/out/{vehicle_status, vehicle_local_position}` |
-| 3 参考 prompt | "你是 ROS2 无人机助教。我运行 `ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0` 后飞机没起飞。请按'话题→QoS→模式→命令'顺序列排查步骤，每条给要执行的 ros2 命令，先给命令清单，不要讲理论。" |
-| 4 执行步骤 | ① 启动栈等到 `Ready for takeoff!` ② 新终端 source 两层环境 ③ 跑命令 ④ 观察日志与 Gazebo ⑤ `ros2 topic echo /x500_0/fmu/out/vehicle_status --once` 看 `arming_state` 是否 1→2→1 |
+| 3 AI 提示 | 先自己判断问题可能在代理/话题/模式哪一段，再问 AI：<br>"你是 ROS2 无人机助教。环境 PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic，命名空间 `/x500_0`，发布端 QoS 为 BEST_EFFORT+VOLATILE。我运行 `ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0` 后飞机没起飞。请按'话题→QoS→模式→命令'给排查步骤，每条附要执行的 ros2 命令，先给命令清单。" |
+| 4 执行步骤 | ① 启动栈等到 `Ready for takeoff!` ② 新终端 source 两层环境 ③ 跑命令 ④ 观察日志与 Gazebo ⑤ `ros2 topic echo /x500_0/fmu/out/vehicle_status --once` 看 `arming_state` 是否 1→2→1<br>**验证 AI 的说法**：用 `ros2 topic list \| grep fmu`、`ps -ef \| grep MicroXRCEAgent` 确认代理与话题真实存在——AI 可能忽略 Agent 或用错话题前缀 |
 | 5 验收标准 | □ 日志四行齐全 □ 窗口看到爬升与降落 □ `grade.py` 三项 PASS □ 能解释 `arming_state` 1 和 2 的含义 |
 | 6 原理 + 扩学 | 教**整条链路可用性**。扩学：`circle_duration` 设 10，观察遥测 x/y 是否落在半径 3m 圆上 |
 
@@ -334,37 +334,18 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 | 5 验收标准 | □ 能复现"无话题、节点空转" □ 能说出 Agent 在链路中的位置 □ 恢复后首飞 PASS |
 | 6 原理 + 扩学 | 教**链路分段排障法**：先桥、再话题、最后 QoS 与模式 |
 
-## AI 实验室
-
-**先自己想**：如果飞机不动，但日志一直打印"等待 PX4 状态..."，你觉得问题最可能出在哪一段？先写下你的判断（代理、话题、还是模式？），再看下面。
-
-**问 AI**：复制这段上下文 + 你的问题给 AI。
-
-> 【课程环境】PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic / XTDrone2；命名空间 `/x500_0`；
-> 统一接口 `drone_sim.px4_interface.PX4Interface`；发布端 QoS 为 BEST_EFFORT+VOLATILE。
-> 要求：先给命令、再解释；不要假设版本；不确定请说明。
->
-> 我的问题：运行 `offboard_demo` 后日志一直"等待 PX4 状态..."，飞机不动。请按"代理→话题→QoS→模式"给出排查步骤，每条附要执行的 ros2 命令。
-
-**验证 AI 的答案**：本章范围内 AI 容易错的地方：
-
-- 它可能让你用 `/fmu/...` 相对话题——本课程用绝对 `/x500_0/fmu/...`；
-- 它可能忽略 Agent 是必需环节，直接让你查飞控；
-- 它可能给出旧版字段或命令，与锁定的 v1.15.4 不符。
-
-用下面命令核对 AI 的说法：
-
-```bash
-ros2 topic list | grep fmu                                  # 话题在不在
-ps -ef | grep MicroXRCEAgent                                # 代理在不在
-tail -20 logs/xtd2_sim.log | grep -iE "create_client|session"  # 会话建了没
-```
-
-**扩展挑战（用 AI 一起做）**：让 AI 帮你在 `offboard_demo` 上加一个 `hover_time` 参数——起飞后先悬停 N 秒再画圆。
-
-验收：① 你自己改的代码能解释每一处；② 跑通并用 `grade.py` 判定仍 PASS；③ 能向同学讲清"参数怎么声明、怎么读、怎么影响流程"。
-
 ## ✅ 检查清单
+
+- [ ] 我能独立复现环境，并知道编译失败时看哪个日志
+- [ ] 我能启动仿真栈并用 `ros2 topic list | grep fmu` 确认链路已通
+- [ ] 我能完成一次首飞，并用 `grade.py` 拿到 3/3 PASS 报告
+- [ ] 我能改参数（高度/半径/角速度）飞出不同轨迹，并预判耗时变化
+- [ ] 我能复现并修复"Agent 缺失导致话题消失"的故障
+- [ ] 我能说出 Gazebo / PX4 SITL / ROS2 节点三者的分工
+- [ ] 若用了 AI 辅助，我能解释它给出的命令或代码，并用上面的命令验证过
+
+> 本课程所有任务都可以用 AI 辅助（解释报错、生成片段、优化思路），方法见 [AI 协作指南](AI_GUIDE.md)。
+> 注意：本课程锁版本且打过补丁，AI 的通用答案可能不适用——**要用命令验证**，不要直接照抄。
 
 - [ ] 我能独立复现环境，并知道编译失败时看哪个日志
 - [ ] 我能启动仿真栈并用 `ros2 topic list | grep fmu` 确认链路已通

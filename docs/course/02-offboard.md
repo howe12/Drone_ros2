@@ -355,39 +355,23 @@ how: |
 |---|---|
 | 1 要实现的功能 | 复现 RELIABLE 发布端死锁并修复 |
 | 2 通信骨架/前置 | 备份 `px4_interface.py`，改 `QOS_PUB.reliability = RELIABLE` |
-| 3 参考 prompt | "我的 ROS2 节点进程还在但 CPU 不增长、也不发消息，怀疑 FastDDS SHM 流控阻塞。请给出用 ps 观察 CPU 时间、以及检查 QoS 配置是否匹配的命令。" |
-| 4 执行步骤 | ① 改 QoS 重编 ② 运行节点 ③ `ps -o time -p <pid>` 两次对比 ④ 改回 BEST_EFFORT 重编验证恢复 |
+| 3 AI 提示 | 现象先自己记下来（进程在、CPU 不动、不发消息），再问 AI：<br>"环境 PX4 v1.15.4 / ROS2 Humble，统一接口 `drone_sim.px4_interface.PX4Interface`。我的 ROS2 节点进程还在但 CPU 不增长、也不发消息，怀疑 FastDDS 共享内存流控阻塞。请给出用 ps 观察 CPU 时间、以及检查 QoS 是否 RELIABLE 的命令。" |
+| 4 执行步骤 | ① 改 QoS 重编 ② 运行节点 ③ `ps -o time -p <pid>` 两次对比 ④ 改回 BEST_EFFORT 重编验证恢复<br>**验证 AI 的说法**：用 `grep -n "QOS_PUB" ros2_ws/src/drone_sim/drone_sim/px4_interface.py` 核对课程实际配置，不要只按 AI 给的默认 RELIABLE 理解 |
 | 5 验收标准 | □ 能复现 CPU 冻结 □ 能说明发布端与订阅端 QoS 应分别是什么 □ 改回后节点正常飞行 |
 | 6 原理 + 扩学 | 教**QoS 匹配**。扩学：检查一个订阅端若用默认 RELIABLE 会怎样（静默收不到） |
 
-## AI 实验室
-
-**先自己想**：飞机起飞后你想让它边飞边转（改变机头朝向）。在不查资料的情况下，你认为需要改哪个话题的哪个字段？先写下猜想。
-
-**问 AI**：复制这段上下文 + 你的问题给 AI。
-
-> 【课程环境】PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic / XTDrone2；命名空间 `/x500_0`；
-> 统一接口 `drone_sim.px4_interface.PX4Interface`；发布端 QoS 为 BEST_EFFORT+VOLATILE；
-> PX4 用 NED（z 向下为正），接口 `alt()` 向上为正。
-> 要求：先给命令/代码，再解释；不要假设版本；不确定请说明。
->
-> 我的问题：我想让无人机在画圆时机头沿切线方向（yaw 跟随），应该设置 TrajectorySetpoint 的哪个字段？给出基于 PX4Interface 的代码片段。
-
-**验证 AI 的答案**：本章 AI 最容易错的两个点，**必须核对**：
-
-1. **字段名**：AI 可能给 `OffboardControlMode.actuator`——本课程 px4_msgs 1.15 实际是 `thrust_and_torque` 与 `direct_actuator`，没有 `actuator`。核对：
-
-   ```bash
-   grep -vE "^#|^$" ros2_ws/src/px4_msgs/msg/OffboardControlMode.msg
-   ```
-
-2. **yaw 单位与接口**：`heartbeat_position(x, y, z_down, yaw)` 的 yaw 是弧度；画圆时课程用 `theta + π/2`。若 AI 给度数或其他写法，要自己换算验证。
-
-**扩展挑战（用 AI 一起做）**：让 AI 帮你把 `hover_node` 改成"到 3m 后前进 5m 再降落"。
-
-验收：① 代码由你自己整合，能解释每处改动；② 实跑并观察 `vehicle_local_position` 的 x 是否真的前进约 5m；③ 能讲清为什么前进用世界系坐标而不是机体系。
-
 ## ✅ 检查清单
+
+- [ ] 我能说出 Offboard 的三个动作及正确顺序
+- [ ] 我能解释为什么切 Offboard 前必须先预流设定点
+- [ ] 我能说清 NED 的 z 符号，以及 `pos.z` 与 `alt()` 的区别
+- [ ] 我能用 `PX4Interface` 写出起飞—悬停—降落节点并跑通
+- [ ] 我能解释 `ekf_stable` 门控在防"贴地爬行"中的作用
+- [ ] 我能复现并修复 QoS RELIABLE 导致的死锁
+- [ ] 若用 AI 生成过代码，我能解释每一行，并用 `grep` 核对过字段名与版本差异
+
+> 写节点、改参数、修故障都可以让 AI 打草稿（见 [AI 协作指南](AI_GUIDE.md)），但本课程锁版本：
+> 例如 `OffboardControlMode` 在 1.15 里是 `thrust_and_torque`/`direct_actuator`，没有旧版的 `actuator`——**AI 给的要自己核对**。
 
 - [ ] 我能说出 Offboard 的三个动作及正确顺序
 - [ ] 我能解释为什么切 Offboard 前必须先预流设定点
