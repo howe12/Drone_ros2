@@ -2,6 +2,7 @@
 - [AI 协作指南（学生用）](AI_GUIDE.md)
 
 - **第一部分 · 基础**
+  - [00 认识无人机与仿真（背景）](course/00-basics.md)
   - [01 环境搭建与首飞](course/01-setup.md)
   - [02 Offboard 控制与 PX4Interface](course/02-offboard.md)
   - [03 传感器话题桥接](course/03-sensors.md)
@@ -31,6 +32,7 @@
   - [故障实验室（FAQ）](faq.md)
 
 - **附录 · 参考手册**
+  - [术语表](GLOSSARY.md)
   - [课程大纲与知识点覆盖](COURSE_OUTLINE.md)
   - [课程编写规范](AUTHORING.md)
   - [章节模板](course/_template.md)

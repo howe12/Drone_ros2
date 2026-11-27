@@ -47,6 +47,7 @@ bash scripts/run_simulation.sh xtd2    # 启动 Gazebo Harmonic + PX4 SITL
 
 | 部分 | 章节 | 对应实验 | 难度 |
 |---|---|---|---|
+| 背景 | [00 认识无人机与仿真](course/00-basics.md)：机型分类、飞行原理、飞控职责、名字由来 | 无实验，阅读章 | 入门 |
 | 基础 | 01 环境搭建与首飞 / 02 Offboard 与 PX4Interface / 03 传感器桥接 / 04 航点与场景 | E1 E2 E13 | L0–L1 |
 | 视觉 | 05 YOLO 检测 / 06 ArUco 精准降落 | E8 | L2–L3 |
 | 估计与建图 | 07 激光 SLAM / 08 VIO 失败案例 | E4 E5 E6 | L4 |
