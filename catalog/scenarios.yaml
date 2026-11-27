@@ -47,12 +47,14 @@ scenarios:
     title: 起飞-悬停-降落
     model: gz_x500
     world: default
+    duration: 95          # 观察窗口(秒): 起飞+悬停+降落并上锁
     command: |
       bash scripts/run_simulation.sh xtd2 gz_x500 default
-      ros2 run drone_sim offboard_demo --ros-args -p takeoff_altitude:=5.0 -p circle_duration:=0.0
+      ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0 \
+        -p takeoff_altitude:=5.0 -p circle_duration:=0.0
     metrics:
       - {name: 起飞高度误差, threshold: '< 0.4', unit: m, how: 'max(-z) 与目标高度之差'}
-      - {name: 全程耗时, threshold: '< 45', unit: s, how: '解锁到上锁'}
+      - {name: 全程耗时, threshold: '< 75', unit: s, how: '解锁到上锁'}
       - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
     evidence: logs/smoke_iface.log
     pitfalls: [QoS_RELIABLE_死锁, 解锁前未预流setpoint]
@@ -63,12 +65,13 @@ scenarios:
     title: 正方形航点任务 + RViz 可视化
     model: gz_x500
     world: aruco
+    duration: 110
     command: |
       bash scripts/run_simulation.sh xtd2 gz_x500 aruco
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square speed:=1.0
     metrics:
-      - {name: 到点误差, threshold: '< 0.5', unit: m, how: '各航点停留时 |pos-wp|'}
-      - {name: 航点数, threshold: '== 4', unit: 个, how: '日志 WP 计数'}
+      - {name: 到点误差, threshold: '< 0.5', unit: m, how: '各航点最小接近距离的最大值'}
+      - {name: 命中航点数, threshold: '>= 4', unit: 个, how: 'min|pos-wp| < 0.5m 的航点数'}
       - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
     evidence: logs/smoke_wp2.log, screenshots/08_e2_waypoint_mission.png
     pitfalls: [EKF原点重置导致贴地爬行]

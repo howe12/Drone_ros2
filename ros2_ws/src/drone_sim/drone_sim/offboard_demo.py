@@ -28,13 +28,17 @@ class OffboardDemo(Node):
         self.declare_parameter('circle_radius', 3.0)      # 画圆半径 (m)
         self.declare_parameter('circle_speed', 0.3)       # 画圆角速度 (rad/s)
         self.declare_parameter('circle_duration', 25.0)   # 画圆时长 (s)
+        self.declare_parameter('px4_ns', '')               # ''=相对话题(launch remap); '/x500_0'=绝对
+        self.declare_parameter('target_system', 1)
         self.alt = self.get_parameter('takeoff_altitude').value
         self.radius = self.get_parameter('circle_radius').value
         self.omega = self.get_parameter('circle_speed').value
         self.circle_time = self.get_parameter('circle_duration').value
 
-        # 单机 demo 用相对话题 /fmu/... (由 launch remap 到具体实例)
-        self.px4 = PX4Interface(self, ns='', target_system=1)
+        # px4_ns='' 时用相对话题 /fmu/... (由 launch remap); 也可直接指定 '/x500_0'
+        self.px4 = PX4Interface(
+            self, ns=self.get_parameter('px4_ns').value,
+            target_system=self.get_parameter('target_system').value)
 
         self.state = 'INIT'
         self.tick = 0

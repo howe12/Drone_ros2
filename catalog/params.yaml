@@ -51,7 +51,9 @@ nodes:
       circle_duration: {type: float, default: 25.0}
       circle_radius: {type: float, default: 3.0}
       circle_speed: {type: float, default: 0.3}
+      px4_ns: {type: str, default: ''}
       takeoff_altitude: {type: float, default: 5.0}
+      target_system: {type: int, default: 1}
   planner_reactive:
     params:
       cruise_z: {type: float, default: 1.2}

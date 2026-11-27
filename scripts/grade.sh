@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# 可执行判定入口 (学生/课程 agent 直接用这个, 不用关心环境)
+#
+#   bash scripts/grade.sh --list
+#   bash scripts/grade.sh --scenario ctrl.takeoff_hover_land --runs 3
+#   bash scripts/grade.sh --scenario ctrl.waypoint_square --runs 3 --md report.md
+#
+# 说明: 必须用系统 python (/usr/bin/python3), conda 的 libstdc++ 版本过低会加载不了 rclpy
+set -e
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# shellcheck disable=SC1091
+source /opt/ros/humble/setup.bash
+# shellcheck disable=SC1091
+source "$ROOT/ros2_ws/install/setup.bash"
+
+export DISPLAY="${DISPLAY:-:0}"
+mkdir -p "$ROOT/logs/grade"
+exec /usr/bin/python3 "$ROOT/tools/grade.py" "$@"
