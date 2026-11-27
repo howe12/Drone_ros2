@@ -30,6 +30,7 @@
   - [故障实验室（FAQ）](faq.md)
 
 - **附录 · 参考手册**
+  - [课程大纲与知识点覆盖](COURSE_OUTLINE.md)
   - [课程编写规范](AUTHORING.md)
   - [章节模板](course/_template.md)
   - [操作手册](OPERATIONS.md)
