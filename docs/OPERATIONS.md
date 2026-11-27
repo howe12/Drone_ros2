@@ -115,3 +115,38 @@ tail -f logs/xtd2_sim.log                                      # 仿真日志（
 | Agent 报找不到库 | `export LD_LIBRARY_PATH=$HOME/.local/lib:$LD_LIBRARY_PATH` |
 | 键盘控制没反应 | 先按 `b` 再 `t` 再 `v`；用调参命令启动（默认步进 0.01 太小） |
 | 日志别写 /tmp | 一律走 `logs/`（脚本已内置限幅，防写爆根分区） |
+
+## 双远端同步（GitHub + Gitee）
+
+本仓库同时托管在两个平台，**一次 `git push` 即可同步两处**（`origin` 配置了多个 push URL）：
+
+| 远端 | 地址 | 认证 |
+|---|---|---|
+| GitHub | `github.com/howe12/Drone_ros2` | HTTPS（网络不稳时代理/直连交替重试）|
+| Gitee | `gitee.com/huo-haijie/Drone_ros2` | SSH（公钥已配置，免密）|
+
+```bash
+git push origin main          # 一条命令 -> 同时推 GitHub 和 Gitee
+bash scripts/push_all.sh      # 备选: 容错版(逐个推, 一个失败不影响另一个, 带重试)
+```
+
+查看/修改推送目标：
+
+```bash
+git remote get-url --push --all origin    # 列出所有 push 目标
+git remote set-url --add --push origin <新地址>   # 追加目标
+```
+
+### 注意
+
+- 多 URL 推送时，**任一目标失败会让 `git push` 返回非零**（但其他目标通常已成功）。
+  网络差时用 `bash scripts/push_all.sh`，它对每个远端单独重试并分别报告结果。
+- Gitee 侧走 SSH，需要 `~/.ssh` 公钥已在 Gitee「设置 → SSH 公钥」注册；
+  换机器或换用户时要重新配置。
+- 校验两处是否一致：
+
+```bash
+git rev-parse --short HEAD
+git ls-remote origin main | cut -c1-7
+git ls-remote gitee main  | cut -c1-7
+```
