@@ -231,12 +231,18 @@ class Sampler:
 class Ctx:
     """探针上下文: 采样数据 + 时间窗 + 节点日志 + 场景定义"""
 
-    def __init__(self, s, t_start, t_end, node_log, sc):
+    def __init__(self, s, t_start, t_end, node_log, sc, log_paths=None):
         self.s = s
         self.t_start = t_start
         self.t_end = t_end
         self.node_log = node_log
         self.sc = sc
+        self.log_paths = log_paths or {}
+
+    def _indexed_log(self):
+        """按 node_log_index 取第 n 条命令的 stdout 日志 (0 起)"""
+        idx = int(self.sc.get('node_log_index', 0))
+        return self.log_paths.get(idx, self.node_log)
 
     def poses(self, ns=None):
         ns = ns or next(iter(self.s.poses))
@@ -260,7 +266,7 @@ class Ctx:
             if not os.path.isabs(path):
                 path = os.path.join(ROOT, path)
         else:
-            path = self.node_log
+            path = self._indexed_log()
         try:
             with open(path, errors='ignore') as f:
                 return f.read()
@@ -369,7 +375,23 @@ def probe_avoid(ctx):
 
 @probe('multi.formation')
 def probe_formation(ctx):
-    """队形误差: 跟随者与 (领航者 + 期望偏移) 的中位距离"""
+    """队形误差: 取跟随者节点自己计算并打印的 "编队误差 X m" (稳态段中位数)
+
+    为什么不自己按 gz 位姿算: PX4 偏移是 NED(北东地), gz 位姿是 ENU(东北天),
+    直接套用会得到完全错误的数字 (实测 4.18m / 7.21m 都是这么来的)。
+    跟随者自己算的误差才是控制器真正在追求的指标。
+    """
+    import re as _re
+    txt = ctx.logtext()
+    vals = [float(m) for m in _re.findall(r'编队误差\s*([0-9.]+)m', txt)]
+    if vals:
+        tail = vals[int(len(vals) * 0.5):] or vals        # 后半段视为稳态
+        tail.sort()
+        a0 = next((t for (t, a) in ctx.arms(list(ctx.s.arms)[0]) if a == 2), None)
+        a1 = next((t for (t, a) in ctx.arms(list(ctx.s.arms)[1]) if a == 2), None)
+        both = 1 if (a0 and a1 and abs(a0 - a1) < 8.0) else 0
+        return {'队形误差': round(tail[len(tail) // 2], 2), '双机同时起飞': both}
+
     off = ctx.sc.get('formation_offset', [0.0, 0.0])
     names = list(ctx.s.poses.keys())
     if len(names) < 2:
@@ -380,9 +402,15 @@ def probe_formation(ctx):
         return {'队形误差': 99.0, '双机同时起飞': 0}
     errs = []
     for (t, lx, ly, lz) in lead[::10]:
+        if lz < 1.0:            # 只看两机都在空中的阶段 (起降段跟随者必然滞后)
+            continue
         near = min(foll, key=lambda p: abs(p[0] - t))
+        if near[3] < 1.0:
+            continue
         ex, ey = lx + off[0], ly + off[1]
         errs.append(((near[1] - ex) ** 2 + (near[2] - ey) ** 2) ** 0.5)
+    if not errs:
+        return {'队形误差': 99.0, '双机同时起飞': 0}
     errs.sort()
     a0 = next((t for (t, a) in ctx.arms(names[0]) if a == 2), None)
     a1 = next((t for (t, a) in ctx.arms(names[1]) if a == 2), None)
@@ -523,9 +551,14 @@ def run_scenario(sc, runs, platform='xtd2'):
                 continue
 
             # 场景命令: 逐行启动 (每行一个独立进程), 剥离 run_simulation.sh 行与续行符
-            cmds = [ln.strip().replace('{RUN_LOG}', f'{OUT_DIR}/{sid}_run{r}_node0.log')
-                    for ln in sc['command'].strip().splitlines()
+            _raw = [ln.strip() for ln in sc['command'].strip().splitlines()
                     if ln.strip() and 'run_simulation.sh' not in ln]
+            log_paths = {}
+            cmds = []
+            for i, ln in enumerate(_raw):
+                lp = f'{OUT_DIR}/{sid}_run{r}_node{i}.log'
+                log_paths[i] = lp
+                cmds.append(ln.replace('{RUN_LOG}', lp))
             if own_stack:
                 t_start = time.time()
                 # 第一条命令负责起整套仿真, 必须等它就绪后再起其余节点
@@ -562,8 +595,8 @@ def run_scenario(sc, runs, platform='xtd2'):
             zs = [p[3] for n in namespaces for p in sampler.poses[n] if p[0] >= t_start]
             if zs:
                 print(f'  采样诊断: {len(zs)} 点, 高度范围 [{min(zs):.2f}, {max(zs):.2f}] m')
-            node_log = f'{OUT_DIR}/{sid}_run{r}_node0.log'
-            ctx = Ctx(sampler, t_start, t_end, node_log, sc)
+            node_log = log_paths.get(0, f'{OUT_DIR}/{sid}_run{r}_node0.log')
+            ctx = Ctx(sampler, t_start, t_end, node_log, sc, log_paths)
             metrics = PROBES[sid](ctx)
             sampler.stop()
             print(f"  指标: {metrics}")
