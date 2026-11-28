@@ -329,6 +329,69 @@ bash scripts/run_simulation.sh xtd2 gz_x500_depth indoor1   # Harmonic 平台
 
 **这两条都是"不修就静默坏"，靠报错根本查不出来**——所以课程把它们固化成补丁，而不是写进文档让人手动做。
 
+### 2.9 colcon 工作区：`install/setup.bash` 到底做了什么
+
+ROS2 的编译产物是**可覆盖的环境变量集合**。`colcon build` 之后，`ros2_ws/install/` 下会生成一堆 `setup.bash`，它们的作用是：
+
+| 设置什么 | 例子 | 作用 |
+|---|---|---|
+| `AMENT_PREFIX_PATH` | 指向 `install/drone_sim` | ROS2 靠它找包 |
+| `PYTHONPATH` | 指向 `install/.../site-packages` | 找到 Python 模块 |
+| `LD_LIBRARY_PATH` | 指向 `install/.../lib` | 找到 `.so` |
+| `PATH` | 加上可执行文件目录 | `ros2 run` 能找到节点 |
+
+**所以"编译成功但 `ros2 run` 找不到包"，九成是没 source**，不是没编译。
+
+**source 的顺序很重要**：
+
+```bash
+source /opt/ros/humble/setup.bash        # ① 先系统 ROS2
+source ros2_ws/install/setup.bash        # ② 再自己的工作区
+```
+
+**顺序反了会怎样**：工作区的 `AMENT_PREFIX_PATH` 被系统 ROS2 覆盖，你的包就"消失"了。表现是 `Package 'drone_sim' not found`。
+
+**还有一个隐蔽的坑**：`setup.bash` 与 `local_setup.bash` 的区别。前者会**级联**加载下层（系统 ROS2），后者只加载本工作区。**如果你已经手动 source 过系统 ROS2，用 `local_setup.bash` 更稳**。
+
+### 2.10 从零到跑通：完整的命令序列
+
+把前面的碎片拼成一条完整流程：
+
+```bash
+# ① 环境（假设已装好 ROS2 Humble 与 Gazebo Harmonic）
+cd <仓库根>
+bash scripts/setup_workspace.sh          # 打补丁、编译 px4_msgs 与 ros_gz
+
+# ② 编译本项目
+cd ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+
+# ③ 验证
+ros2 pkg list | grep drone_sim           # 应能看到包
+ros2 pkg executables drone_sim           # 应列出所有节点
+
+# ④ 起飞
+cd <仓库根>
+bash scripts/run_simulation.sh xtd2 gz_x500 aruco
+# 新终端
+source /opt/ros/humble/setup.bash && source ros2_ws/install/setup.bash
+ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0
+```
+
+**`--symlink-install` 的作用**：Python 文件用软链接而不是拷贝，**改代码不用重新编译**——只对 Python 有效，C++ 仍需重编。
+
+**每一步的验证点**：
+
+| 步 | 验证 |
+|---|---|
+| ① | `gz sim --versions` 有 8.x |
+| ② | `colcon build` 无 error |
+| ③ | 能看到包与节点 |
+| ④ | 日志出现 `Ready for takeoff!` |
+
+**任何一步失败，不要往下走**——后面所有奇怪现象都可能是前一步的残留。
+
 ---
 
 ## 3. 扩展：案例与排障
@@ -453,6 +516,48 @@ gz sim -s -r world.sdf # 只跑服务端（无界面），用于无头验证
 ```
 
 **为什么值得提**：本仓库的判分脚本需要 GUI（`DISPLAY=:0`），但**服务端能跑不代表 GUI 能跑**——这两个问题要分开排查。
+
+### 案例 7：`Package 'drone_sim' not found`
+
+**现象**：刚 `colcon build` 成功，但 `ros2 run drone_sim ...` 报找不到包。
+
+**原因**：三种可能，按概率排序：
+
+| 原因 | 验证 |
+|---|---|
+| 没 source 工作区 | `echo $AMENT_PREFIX_PATH` 里有没有 `ros2_ws/install` |
+| source 顺序反了 | 先 source 工作区、后 source 系统 ROS2（2.9 节） |
+| 开的是新终端 | 每个新终端都要重新 source |
+
+**诊断**：
+
+```bash
+echo $AMENT_PREFIX_PATH | tr ':' '\n' | grep -E "ros2_ws|opt/ros"
+```
+
+**看顺序**：`ros2_ws/install` 应该出现在 `/opt/ros/humble` **之前**（或至少在列表里）。
+
+**处理**：在 `~/.bashrc` 末尾按正确顺序加两行 source，或每次开终端手动 source。
+
+**为什么值得单列这个案例**：它是本章最高频的入门卡点，而且**错误信息完全不提示"你没 source"**。
+
+### 案例 8：改了 Python 代码但行为没变
+
+**现象**：改了节点代码，`ros2 run` 后行为还是旧的。
+
+**原因**：编译时**没用** `--symlink-install`，install 目录里是拷贝的旧文件。
+
+**验证**：
+
+```bash
+ls -l ros2_ws/install/drone_sim/lib/python3.*/site-packages/drone_sim/<你的文件>.py
+```
+
+如果显示的是普通文件（不是箭头 `->`），说明是拷贝。
+
+**处理**：重新 `colcon build --symlink-install`，之后改 Python 就即时生效。
+
+**注意**：C++ 改动仍要重编——软链接只对脚本类文件有效。
 
 ---
 
