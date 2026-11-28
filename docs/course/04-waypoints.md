@@ -503,6 +503,65 @@ if dist < self.tol:      # tol = arrive_tol = 0.35
 
 **简单任务用简单工具**。方形任务用行为树是过度设计；反过来，"看到人就降落"用 YAML 表达不了。
 
+### 4.7 把任务写成"可判分的场景"
+
+你写了一个新任务，怎么让它变成能自动判分的实验？这一步把本章和第 16 章连起来。
+
+**第一步：确定指标（照着任务目标写，不要照着"能测什么"写）**
+
+假设任务目标是"飞三角形并回到起点"：
+
+| 指标 | 阈值 | how |
+|---|---|---|
+| 结束误差 | < 1.0 m | 结束时与起点的距离 |
+| 到达航点数 | ≥ 3 个 | 进入各航点 0.6m 内的个数 |
+| 结束状态 | disarmed | `arming_state == 1` |
+
+**注意第一条是"回到起点"，不是"飞完三个点"**——如果只测"到达三个航点"，一个不回来的任务也能通过。
+
+**第二步：确认能被采样到**
+
+每个指标都要有数据源：
+
+| 指标 | 数据源 |
+|---|---|
+| 结束误差 | `{ns}/pose`（世界真值） |
+| 到达航点数 | `{ns}/pose` + 任务文件里的航点坐标 |
+| 结束状态 | `{ns}/fmu/out/vehicle_status` |
+
+**如果某个指标拿不到数据，就换个说法**——不要编一个测不了的标准。
+
+**第三步：写进 `scenarios.yaml`**
+
+```yaml
+- id: ctrl.triangle_mission
+  level: L1
+  model: gz_x500
+  world: aruco
+  command: |
+    ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=triangle
+  metrics:
+    - {name: 结束误差, threshold: '< 1.0', unit: m, how: '结束时与起点的距离'}
+    - {name: 到达航点数, threshold: '>= 3', unit: 个, how: '进入各航点 0.6m 内的个数'}
+    - {name: 结束状态, threshold: 'disarmed', unit: '-', how: 'arming_state==1'}
+  pitfalls: [航点 z 写成正值会往地下钻]
+  status: unverified
+```
+
+**第四步：跑三次，再改 status**
+
+```bash
+python3 tools/grade.py --scenario ctrl.triangle_mission --runs 3
+```
+
+三次都过 → 改成 `verified`；有失败 → 保留 `unverified` 并写清原因。
+
+**第五步：写进章节**
+
+把指标表、实测数据、踩过的坑都写进对应章节——**这就是本章的成文过程**。
+
+> **一条原则**：`status` 是给读者的承诺。**没跑够 3 次就别写 `verified`。**
+
 ---
 
 ## 你可能卡在这里
