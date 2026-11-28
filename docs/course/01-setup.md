@@ -835,3 +835,131 @@ bash scripts/sim2real_check.sh                             # 环境自检
 **注意最后一条**：`ps | grep` 里带上 `grep -v grep` 是为了排除 grep 自己——**这是 shell 里最常见的误判来源**。
 
 ---
+
+---
+
+## 附录 C：从零安装的完整步骤
+
+假设你有一台干净的 **Ubuntu 22.04**。按顺序做，每步都有验证点。
+
+### 步骤 0：系统依赖
+
+```bash
+sudo apt update
+sudo apt install -y git curl build-essential python3-pip
+```
+
+**验证**：`python3 --version` 应 ≥ 3.10。
+
+### 步骤 1：ROS2 Humble
+
+按官方文档安装（`docs.ros.org` 的 Humble 安装页）。
+
+```bash
+source /opt/ros/humble/setup.bash
+```
+
+**验证**：
+
+```bash
+ros2 --version          # 有输出即成功
+printenv | grep ROS_DISTRO   # 应显示 humble
+```
+
+**常见问题**：装了 Iron/Jazzy 却以为在跑 Humble。**版本对不上，`px4_msgs` 编译会失败。**
+
+### 步骤 2：Gazebo Harmonic
+
+```bash
+bash scripts/install_gz_harmonic.sh
+```
+
+**验证**：
+
+```bash
+gz sim --versions       # 应显示 8.x
+```
+
+**为什么不是 Fortress**：`ros_gz` 需要按 Harmonic 编译（第 2.6 节）。
+
+### 步骤 3：克隆仓库
+
+```bash
+git clone https://github.com/howe12/Drone_ros2.git
+cd Drone_ros2
+```
+
+### 步骤 4：一键复现工作区
+
+```bash
+bash scripts/setup_workspace.sh
+```
+
+这个脚本做四件事：
+
+| 动作 | 说明 |
+|---|---|
+| 克隆 PX4-Autopilot | 锁定 `v1.15.4`（含子模块） |
+| 克隆第三方 | XTDrone2、VINS-Fusion、ego-planner 等（锁定 commit） |
+| 应用 19 个补丁 | 见第 2.8 节的分类 |
+| 编译 | `px4_msgs`、`ros_gz`（`GZ_VERSION=harmonic`）、`drone_sim` |
+
+**这一步最慢**（首次约 20–60 分钟，取决于网络）。
+
+**如果卡在克隆**：脚本注释里给了镜像方案（`ghfast.top` 前缀），并把 SHA 校验保留——**镜像只加速，不降低完整性要求**。
+
+### 步骤 5：编译本项目
+
+```bash
+cd ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+
+**验证**：
+
+```bash
+ros2 pkg executables drone_sim | wc -l    # 应为 14
+```
+
+### 步骤 6：自检
+
+```bash
+bash scripts/sim2real_check.sh    # 应为 9 通过 0 失败
+```
+
+### 步骤 7：首飞
+
+```bash
+bash scripts/run_simulation.sh xtd2 gz_x500 aruco
+# 新终端
+source /opt/ros/humble/setup.bash && source ros2_ws/install/setup.bash
+ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0
+```
+
+**验证**：日志出现 `Ready for takeoff!`，飞机起飞、画圆、降落。
+
+### 七步的验证点汇总
+
+| 步 | 验证命令 | 合格标准 |
+|---|---|---|
+| 0 | `python3 --version` | ≥ 3.10 |
+| 1 | `printenv \| grep ROS_DISTRO` | humble |
+| 2 | `gz sim --versions` | 8.x |
+| 3 | `ls PX4-Autopilot 2>/dev/null` | 目录存在 |
+| 4 | `ls patches/*.patch \| wc -l` | 19 |
+| 5 | `ros2 pkg executables drone_sim \| wc -l` | 14 |
+| 6 | `bash scripts/sim2real_check.sh` | 9 通过 |
+| 7 | 日志 | `Ready for takeoff!` |
+
+**任何一步不过，不要往下走。** 后面的所有奇怪现象都可能是前一步的残留。
+
+### 三个最常见的安装失败
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `colcon build` 报 `px4_msgs` 找不到 | ROS 版本不是 Humble | 检查 `ROS_DISTRO` |
+| 桥接报 `failed to load transport plugin` | `ros_gz` 不是按 Harmonic 编的 | 重编，确认 `GZ_VERSION=harmonic` |
+| `ros2 pkg` 找不到 `drone_sim` | 没 source 或 source 顺序反了 | 见第 2.9 节 |
+
+**这三条覆盖了 90% 的安装问题**——因为它们分别是"版本错、编译参数错、环境变量错"。
