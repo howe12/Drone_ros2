@@ -455,6 +455,27 @@ how: |
 
 **对策**：`PX4Interface` 构造时传入正确的 `target_system`；第 12 章详述。
 
+### 案例 5：发了速度，飞机却往奇怪方向飞
+
+**现象**：用速度设定点写避障，飞机起飞后朝一个固定方向猛冲，日志里速度值"看起来对"。
+
+**原因**：`OffboardControlMode` 里置位的是 `position = True`，而 `TrajectorySetpoint` 里填的是速度（2.9 节）。
+
+**飞控的行为**：它以为你给的是"目标位置"，于是把 `(vx, vy, vz)` 当成"要去的地方"——数值上的小速度变成了"附近的一个点"，飞机就往那个方向飞。
+
+**诊断**：
+
+```bash
+ros2 topic echo <ns>/fmu/in/offboard_control_mode --once
+ros2 topic echo <ns>/fmu/in/trajectory_setpoint --once
+```
+
+**对比两个消息**：`OffboardControlMode` 里哪个字段为 `true`？`TrajectorySetpoint` 里哪组量非零？**两者必须一致**。
+
+**这个坑为什么难查**：没有报错、没有警告，飞机确实在动，只是动得不对。
+
+**教训**：**Offboard 的所有"静默错误"都长一个样——飞机能动，但不按你想的动。** 所以每次改控制方式，都要用最简场景（悬停/单轴移动）先验证一次。
+
 ---
 
 ## 你可能卡在这里
