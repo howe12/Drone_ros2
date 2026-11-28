@@ -207,6 +207,8 @@ bash scripts/run_simulation.sh classic [机型] [世界] # Gazebo Classic（本�
 - **出生点**可用环境变量覆盖（室内场景常用，避免生成在墙里）：
   `SPAWN_X=-4 SPAWN_Y=-9 SPAWN_Z=0.3 bash scripts/run_simulation.sh xtd2 gz_x500 indoor_hall`
 - 注意：ROS1 版 XTDrone 的算法不能直接混入本 Humble 工作区，需要时按包单独移植
+- **怎么找/选/造场景**：见 [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)
+  （四个来源、8 步 SOP、按实验类型查表、学生造环境作业的验收标准）
 
 ### 集成时踩过的坑（已全部固化为补丁）
 
