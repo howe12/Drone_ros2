@@ -836,3 +836,83 @@ xyz = np.stack([buf[:, off['x']:off['x']+4].view(np.float32).ravel(),
 **`pose.covariance` 是关键**：第 7 章说"带协方差的里程计桥接"就是指这个字段必须有有效值。
 
 ---
+
+---
+
+## 附录 C：一个可直接用的传感器自检脚本
+
+把本章的检查固化成脚本，比手动一条条敲省事。存成 `check_sensors.sh`。
+
+```bash
+#!/usr/bin/env bash
+# 传感器自检：频率 / 内容 / 时间戳
+set -u
+NS="${1:-/x500_mono_cam_0}"
+
+echo "== 命名空间: $NS"
+
+echo "-- 1. 话题是否存在"
+for t in camera/image_raw camera/camera_info imu pose; do
+  if ros2 topic list | grep -q "^${NS}/${t}$"; then
+    echo "   [OK]   ${t}"
+  else
+    echo "   [MISS] ${t}"
+  fi
+done
+
+echo "-- 2. 频率（取 5 秒平均）"
+for t in camera/image_raw imu; do
+  f=$(timeout 6 ros2 topic hz "${NS}/${t}" 2>/dev/null | grep -m1 average | awk '{print $3}')
+  echo "   ${t}: ${f:-无数据} Hz"
+done
+
+echo "-- 3. 图像编码与尺寸"
+ros2 topic echo "${NS}/camera/image_raw" --once --field encoding 2>/dev/null
+ros2 topic echo "${NS}/camera/image_raw" --once --field width 2>/dev/null
+ros2 topic echo "${NS}/camera/image_raw" --once --field step 2>/dev/null
+
+echo "-- 4. 内参"
+ros2 topic echo "${NS}/camera/camera_info" --once --field k 2>/dev/null
+
+echo "-- 5. 静止时的加速度模长（应约 9.8–10.5）"
+ros2 topic echo "${NS}/imu" --once --field linear_acceleration 2>/dev/null
+
+echo "-- 6. 时间戳与 /clock 是否同步"
+ros2 topic hz /clock 2>/dev/null | grep -m1 average
+```
+
+### 用法
+
+```bash
+bash check_sensors.sh /x500_mono_cam_0
+bash check_sensors.sh /x500_depth_0        # 换机型就换命名空间
+```
+
+### 六项检查对应本章哪节
+
+| 检查 | 对应 | 不过说明什么 |
+|---|---|---|
+| 1 话题存在 | 2.1 | 机型不对或桥接没起 |
+| 2 频率 | 2.3 | 桥接卡了 / 世界太重 |
+| 3 编码与 `step` | 2.9 | 编码错颜色反；`step` 有填充会斜切 |
+| 4 内参 | 2.5 | 内参文件没加载 |
+| 5 加速度模长 | 2.13 | IMU 没数据或坐标系异常 |
+| 6 `/clock` | 2.8 | `use_sim_time` 会失效 |
+
+### 两个注意点
+
+**第一，`ros2 topic hz` 会一直跑**，所以用 `timeout 6` 限定。
+
+**第二，`grep -m1 average` 只取第一次统计**——`topic hz` 前几秒数据不稳，正常。
+
+### 脚本化检查的价值
+
+| 手动检查 | 脚本检查 |
+|---|---|
+| 每次都要回忆命令 | 一条命令 |
+| 容易漏项 | 六项固定 |
+| 结果在脑子里 | 输出可存档 |
+
+**建议**：每次换机型或改动桥接后跑一次，把输出存进 `logs/`。**出问题时能对比"上次好的时候是什么样"。**
+
+---
