@@ -192,18 +192,12 @@ PX4 本地坐标是 **NED**（North-East-Down，北-东-地）：**z 向下为�
 
 所以判断高度用 `alt()`，不要用 `pos.z` 直接比大小。
 
-<!-- IMAGE_PLACEHOLDER
-id: fig-ch02-coordinates
-caption: 图 2.3 NED 与 ENU 坐标系对比：轴向与 z 符号差异
-alt: 坐标系对比图，左为 PX4 NED（x 北、y 东、z 向下为正），右为 Gazebo ENU（x 东、y 北、z 向上为正），标出同一高度在两系下 z 值符号相反
-prompt: |
-  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。
-  左右并排两个三维坐标轴：
-  左侧标题 "PX4 局部坐标系 NED"，x 轴指北标 "x（北）"，y 轴指东标 "y（东）"，z 轴向下标 "z（向下为正）"，在 z 轴上方 5m 处画一个小四旋翼，旁标注 "高度 5m → z = -5.0"；
-  右侧标题 "Gazebo 世界坐标系 ENU"，x 轴指东标 "x（东）"，y 轴指北标 "y（北）"，z 轴向上标 "z（向上为正）"，同样位置标 "高度 5m → z = +5.0"。
-  两图之间画双向箭头标 "enu_to_ned() 转换"。配色蓝灰，轴向标注清晰。
--->
-![图 2.3 坐标系对比](images/PLACEHOLDER-fig-ch02-coordinates.png)
+<!-- 官方图：PX4-Autopilot 文档 docs/assets/advanced/ENU-NED.png，CC BY 4.0 -->
+![图 2.3 NED 与 ENU 坐标对比](images/external/px4-enu-ned.png)
+
+**图 2.3　官方画的 NED 与 ENU：同一个"上"，一个写成负数，一个写成正数。**
+
+*图源：PX4-Autopilot 文档 `docs/assets/advanced/ENU-NED.png`，CC BY 4.0。记住结论：PX4 里飞 5m 高写 z=-5，Gazebo 里写 z=+5。*
 
 ### 2.3 为什么必须用 PX4Interface
 

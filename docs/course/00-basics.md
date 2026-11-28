@@ -32,18 +32,16 @@
 
 **旋翼数量的含义**：四旋翼（quadcopter）4 个桨、六旋翼（hexacopter）6 个、八旋翼 8 个。桨越多冗余越高（坏一个电机还能降落），但效率和载重比下降。课程里的 `typhoon_h480` 就是六旋翼。
 
-<!-- IMAGE_PLACEHOLDER
-id: fig-ch00-uav-types
-caption: 图 0.1 无人机三大类：多旋翼、固定翼、复合翼的外形与升力方式对比
-alt: 三类无人机对比图，多旋翼四个桨向上拉可悬停，固定翼靠机翼气流升力需前进，复合翼兼具两者
-prompt: |
-  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。横向三栏：
-  左栏画一个 X 型四旋翼俯视图，四个桨标旋转方向（两顺两逆），下方标 "多旋翼：桨直接向上拉，可悬停，续航短"；
-  中栏画一架固定翼侧视图，机翼上方画气流箭头，下方标 "固定翼：机翼靠气流升力，必须前进，续航长"；
-  右栏画复合翼（四旋翼+机翼），下方标 "复合翼 VTOL：垂直起降+固定翼巡航"。
-  每栏顶部写类型名。配色蓝灰，线条简洁。
--->
-![图 0.1 无人机分类](images/PLACEHOLDER-fig-ch00-uav-types.png)
+<!-- 官方图标：PX4-Autopilot 文档 docs/assets/airframes/types/，CC BY 4.0 -->
+<p align="center">
+  <img src="images/external/px4-frame-quadrotorx.svg" alt="多旋翼" width="26%">
+  <img src="images/external/px4-frame-plane.svg" alt="固定翼" width="24%">
+  <img src="images/external/px4-frame-vtolplane.svg" alt="复合翼 VTOL" width="34%">
+</p>
+
+**图 0.1　三类机型的外形（官方图标）：左 多旋翼、中 固定翼、右 复合翼 VTOL。**
+
+*图源：PX4-Autopilot 文档 `docs/assets/airframes/types/`，CC BY 4.0。图标只示外形，升力来源与续航的差别见上表。*
 
 ## 2. 四旋翼是怎么飞起来的
 
