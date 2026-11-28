@@ -244,7 +244,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 |---|---|---|---|---|
 | `ctrl.takeoff_hover_land` 起飞-悬停-降落 | ✅ **PASS** | 高度误差 0.21m / 32.5s / 正常上锁 | <0.4m / <75s | — |
 | `ctrl.waypoint_square` 正方形航点 | ✅ **PASS** | 到点误差 **0.26m** / 命中 **4/4** / 正常上锁 | <0.5m / ≥4 | [▶](videos/ctrl.waypoint_square.mp4) |
-| `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 启动成功 / 无异常退出 | — | — |
+| `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 启动成功 / 无异常退出 | — | 见下 |
 | `vision.aruco_precision_landing` 精准降落 | ✅ **PASS** | 落点偏差 **0.028–0.083m** / 正常上锁 | <0.15m | [▶](videos/vision.aruco_precision_landing.mp4) |
 | `slam.lio_odometry` 3D 激光里程计 | ✅ **PASS** | 高度误差 **0.002m** / 9.4Hz / 跨度 3.6m | <0.2m / >5Hz / >2m | — |
 | `plan.obstacle_avoidance` 障碍绕行 | ✅ **PASS** | 最近接近 **0.02m** / 障碍距离 0.99m | <0.8m / >0.8m | — |
@@ -279,6 +279,14 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 ![行为树任务](videos/mission.behavior_tree.gif)
 [▶ 原速 MP4](videos/mission.behavior_tree.mp4)
 
+**3D 激光 SLAM / 里程计**（Point-LIO：高度误差 0.015 m、8.7 Hz、轨迹跨度 3.5 m）
+![3D 激光里程计](videos/slam.lio_odometry.gif)
+[▶ 原速 MP4](videos/slam.lio_odometry.mp4)
+
+**局部规划避障**（自研反应式规划器：最近接近 ≈0.02 m，与障碍保持 >0.9 m）
+![局部规划避障](videos/plan.obstacle_avoidance.gif)
+[▶ 原速 MP4](videos/plan.obstacle_avoidance.mp4)
+
 **正方形航点**（到点误差 0.24 m，4/4 命中）
 ![正方形航点](videos/ctrl.waypoint_square.gif)
 [▶ 原速 MP4](videos/ctrl.waypoint_square.mp4)
@@ -294,6 +302,15 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 **3 机集群交叉**（⚠️ 失败案例：最小间距 1.2 m 合格，但 0/3 到达目标）
 ![3 机集群](videos/swarm.cross_3uav.gif)
 [▶ 原速 MP4](videos/swarm.cross_3uav.mp4)
+
+**YOLO 目标检测**：⚠️ 仿真场景（baylands）里**没有 COCO 类别的物体**（只有树/草地/道路），
+所以实时画面里检测框为空 —— 这不是节点故障。节点在离线样例图上工作正常：
+
+![YOLO 检测样例](screenshots/18_e8_yolo_test.jpg)
+
+> 检出：`bus 0.87`、`person 0.87/0.83/0.89`、`stop sign 0.26`。
+> 若要在仿真里看到检测框，需要往世界里加入 COCO 类目标（人/车等），
+> 属于场景扩展工作（见 `docs/SCENARIOS.md` 的"参考仓库"）。
 
 ### 运行截图
 

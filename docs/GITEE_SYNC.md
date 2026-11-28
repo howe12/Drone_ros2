@@ -103,35 +103,42 @@ git ls-remote gitee  main | cut -c1-7      # Gitee
 
 ---
 
-## 7. Gitee Pages（课程网站）
+## 7. 课程网站托管（Gitee Pages 已停止服务）
 
-GitHub 侧课程站点走 GitHub Pages（`howe12.github.io/Drone_ros2`）。
-Gitee Pages 是**另一套服务**，站点地址将是 `https://huo-haijie.gitee.io/Drone_ros2/`。
+### 7.1 现状：Gitee Pages 不可用
 
-### 7.1 仓库侧已准备就绪（无需再改）
+**Gitee Pages 已停止服务**（2025 年确认）：
 
-- docsify 及全部插件已**下载到本地 `docs/vendor/`**，`index.html` 不再依赖 jsdelivr 等外部 CDN
-  （jsdelivr 与 Google Fonts 在国内不稳定，已移除）。GitHub / Gitee 两侧都能自包含加载。
-- 部署目录用 `docs/`，docsify 用 hash 路由，相对路径在 Gitee Pages 下无需改配置。
+- 仓库「服务」菜单中已无 Gitee Pages 入口（实测截图确认）
+- 直接访问 `gitee.com/<owner>/<repo>/pages` 返回 404
+- 官方反馈区 issue：[Gitee Pages服务是停用了吗](https://gitee.com/oschina/git-osc/issues/ID1EVM)（状态「已完成」）
 
-一键检查就绪状态 + 探测站点是否上线：
+**结论：课程站点不能部署在 Gitee Pages 上。** 本仓库已把 `docs/vendor/` 的 docsify 本地化（不依赖 jsdelivr / Google Fonts），这份准备对任何静态托管平台都通用，不会浪费。
 
-```bash
-bash scripts/deploy_gitee_pages.sh --check
-```
+代码镜像仍可通过 Gitee 获取（`git clone https://gitee.com/huo-haijie/Drone_ros2.git`），只是"网页托管"需要换平台。
 
-### 7.2 开通步骤（账号侧操作，脚本/API 无法代办）
+### 7.2 替代方案对比
 
-Gitee Pages 免费版必须**实名认证 + 网页手动开通**，本仓库无 Gitee API token，故以下步骤需你在浏览器完成：
+| 方案 | 国内访问 | 成本 | 自动部署 | 备注 |
+|---|---|---|---|---|
+| **GitHub Pages**（现状） | 不稳定（时快时慢/需代理） | 免费 | ✅ 推送即部署 | 已上线：`howe12.github.io/Drone_ros2` |
+| **Cloudflare Pages** | 较好（全球 CDN） | 免费 | ✅ 连 GitHub 自动部署 | 推荐首选，`*.pages.dev` 免域名 |
+| Vercel / Netlify | 差（默认域名常被墙） | 免费 | ✅ | 需自备域名才可用 |
+| 阿里云 OSS / 腾讯云 COS | 最好 | 按量计费 | 需 CI 或手动上传 | 绑定自定义域名需**ICP 备案** |
+| 自建 nginx | 取决于服务器 | 服务器成本 | 需 CI | 需公网 IP + 域名 |
 
-1. 打开 `https://gitee.com/huo-haijie/Drone_ros2/pages`（或仓库首页 → 服务 → Gitee Pages）
-2. 若提示实名认证，先完成实名认证
-3. 部署分支选 `main`，部署目录选 `docs/`，点「启动/部署」
-4. 成功后访问 `https://huo-haijie.gitee.io/Drone_ros2/`
+### 7.3 推荐：Cloudflare Pages（步骤）
 
-运行 `bash scripts/deploy_gitee_pages.sh` 会打印上述步骤并尝试打开设置页。
+仓库已就绪（静态站，输出目录 `docs/`，无需构建命令）：
 
-### 7.3 每次推送后手动更新
+1. 用 GitHub 账号登录 <https://dash.cloudflare.com/> → Workers & Pages → Create → Pages → Connect to Git
+2. 选择仓库 `howe12/Drone_ros2`，分支 `main`
+3. 构建设置：**Framework preset = None**，**Build command 留空**，**Build output directory = `docs`**
+4. 保存部署，得到形如 `https://drone-ros2.pages.dev` 的地址
+5. 之后每次 push 自动重新部署（无需手动点更新）
 
-**Gitee Pages 不会自动跟随推送**：每次 `git push origin main` 后，需回到 Pages 设置页手动点「更新」才会重新部署。
-（GitHub Pages 是自动的；这是两个平台的差异。）
+> 如需自定义域名，在 Pages 项目 → Custom domains 里绑定，Cloudflare 会自动配 DNS。
+
+### 7.4 已废弃：Gitee Pages 相关脚本
+
+`scripts/deploy_gitee_pages.sh` 保留作为历史记录，其功能已随 Gitee Pages 停服失效，**不要再使用**。
