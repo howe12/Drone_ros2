@@ -18,8 +18,13 @@ def generate_launch_description():
     num_arg = DeclareLaunchArgument('num', default_value='2')
     world_arg = DeclareLaunchArgument('world', default_value='aruco')
     model_arg = DeclareLaunchArgument('model', default_value='gz_x500')
+    # px4_dir 默认指向**本仓库内的 PX4**（仓库根/PX4-Autopilot），而不是要求开发者
+    # 把 PX4 放在家目录。也可用环境变量 PX4_DIR 覆盖。
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                              '..', '..', '..', '..'))
     px4_dir_arg = DeclareLaunchArgument(
-        'px4_dir', default_value=os.path.expanduser('~/PX4-Autopilot'))
+        'px4_dir', default_value=os.environ.get(
+            'PX4_DIR', os.path.join(_repo_root, 'PX4-Autopilot')))
     # E9: 自定义初始位置 "x,y;x,y;..." (空则用默认 i*2 一字排开)
     spawn_arg = DeclareLaunchArgument('spawn', default_value='')
 
