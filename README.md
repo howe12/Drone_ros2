@@ -371,6 +371,20 @@ bash scripts/run_yolo.sh /x500_mono_cam_0/camera/image_raw \
 实测在有人/车的画面上检出 `person 0.90 / 0.87`（高于 COCO 的 0.81）；
 依赖 CLIP（`pip install git+https://github.com/ultralytics/CLIP.git`）+ 338MB 权重。
 
+**室内飞行**（`indoor_hall`：20×20 m，36 件家具，起飞 2.5 m 后绕半径 2 m 画圆）
+
+![室内飞行](videos/indoor_hall.flight.gif)
+[▶ 原速 MP4](videos/indoor_hall.flight.mp4)
+
+> ⚠️ **这里的坑**：`offboard_demo` 的**画圆圆心就是起飞点**。早先用出生点 `(-4,-9)` +
+> 半径 2 m，圆周到 `y=-11`，而南墙内表面在 `y=-9.85` —— **实测撞墙**。
+> 现在录制脚本内置**边界自检**：圆周或起飞高度越界时直接以退出码 3 拒绝起飞。
+>
+> ```bash
+> bash scripts/record_indoor_video.sh indoor_hall        # 自检通过才录
+> SPAWN_X=0 SPAWN_Y=0 CIRCLE_RADIUS=2.0 bash scripts/record_indoor_video.sh
+> ```
+
 ### 运行截图
 
 **① 起飞爬升**（遥测 z = -4.55 m，NED 坐标即高度 4.55 m）:

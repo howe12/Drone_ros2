@@ -1,9 +1,9 @@
 diff --git a/xtd2_gz_sim/worlds/indoor_hall.sdf b/xtd2_gz_sim/worlds/indoor_hall.sdf
 new file mode 100644
-index 0000000..03b89c2
+index 0000000..1a444ab
 --- /dev/null
 +++ b/xtd2_gz_sim/worlds/indoor_hall.sdf
-@@ -0,0 +1,270 @@
+@@ -0,0 +1,306 @@
 +<sdf version="1.9">
 +  <world name="indoor_hall">
 +    <physics type="ode">
@@ -236,41 +236,77 @@ index 0000000..03b89c2
 +    </link></model>
 +
 +    <!-- 家具: Gazebo Fuel (scripts/fetch_fuel_models.sh 下载) -->
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_0</name><pose>-9.0 -7.5 0 0 0 1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_1</name><pose>9.0 -7.5 0 0 0 -1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_2</name><pose>-9.0 -2.5 0 0 0 1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_3</name><pose>9.0 -2.5 0 0 0 -1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_4</name><pose>-9.0 2.5 0 0 0 1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_5</name><pose>9.0 2.5 0 0 0 -1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_6</name><pose>-9.0 7.5 0 0 0 1.5708</pose></include>
-+    <include><uri>model://SquareShelf</uri><name>SquareShelf_7</name><pose>9.0 7.5 0 0 0 -1.5708</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_8</name><pose>-3.5 -6.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_9</name><pose>-3.5 -7.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_10</name><pose>0.0 -6.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_11</name><pose>0.0 -7.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_12</name><pose>3.5 -6.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_13</name><pose>3.5 -7.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_14</name><pose>-3.5 -3.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_15</name><pose>-3.5 -4.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_16</name><pose>0.0 -3.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_17</name><pose>0.0 -4.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://Desk</uri><name>Desk_18</name><pose>3.5 -3.0 0 0 0 1.5708</pose></include>
-+    <include><uri>model://VisitorChair</uri><name>VisitorChair_19</name><pose>3.5 -4.2 0 0 0 3.1416</pose></include>
-+    <include><uri>model://pallet_rack_section</uri><name>pallet_rack_section_20</name><pose>-5.0 8.5 0 0 0 0</pose></include>
-+    <include><uri>model://pallet_rack_section</uri><name>pallet_rack_section_21</name><pose>5.0 8.5 0 0 0 0</pose></include>
-+    <include><uri>model://euro_pallet</uri><name>euro_pallet_22</name><pose>-6.5 7.0 0 0 0 0</pose></include>
-+    <include><uri>model://euro_pallet</uri><name>euro_pallet_23</name><pose>-4.5 7.0 0 0 0 0</pose></include>
-+    <include><uri>model://euro_pallet</uri><name>euro_pallet_24</name><pose>4.5 7.0 0 0 0 0</pose></include>
-+    <include><uri>model://euro_pallet</uri><name>euro_pallet_25</name><pose>6.5 7.0 0 0 0 0</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_26</name><pose>-7.5 5.5 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_27</name><pose>-7.5 5.5 0.55 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_28</name><pose>-6.6 5.5 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_29</name><pose>7.5 5.5 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_30</name><pose>7.5 5.5 0.55 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_31</name><pose>-2.0 -9.0 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_32</name><pose>0.0 -9.0 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_33</name><pose>2.0 -9.0 0 0 0 0.3</pose></include>
-+    <include><uri>model://cardboard_box</uri><name>cardboard_box_34</name><pose>2.6 -9.0 0 0 0 0.3</pose></include>
-+    <include><uri>model://Fridge</uri><name>Fridge_35</name><pose>8.4 9.0 0 0 0 -0.6</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_0</name><pose>-9.0 -7.5 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_1</name><pose>9.0 -7.5 0 0 0 -1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_2</name><pose>-9.0 -2.5 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_3</name><pose>9.0 -2.5 0 0 0 -1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_4</name><pose>-9.0 2.5 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_5</name><pose>9.0 2.5 0 0 0 -1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_6</name><pose>-9.0 7.5 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://SquareShelf</uri><name>SquareShelf_7</name><pose>9.0 7.5 0 0 0 -1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_8</name><pose>-3.5 -6.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_9</name><pose>-3.5 -7.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_10</name><pose>0.0 -6.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_11</name><pose>0.0 -7.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_12</name><pose>3.5 -6.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_13</name><pose>3.5 -7.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_14</name><pose>-3.5 -3.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_15</name><pose>-3.5 -4.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_16</name><pose>0.0 -3.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_17</name><pose>0.0 -4.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://Desk</uri><name>Desk_18</name><pose>3.5 -3.0 0 0 0 1.5708</pose></include>
++    <include>
++      <static>true</static><uri>model://VisitorChair</uri><name>VisitorChair_19</name><pose>3.5 -4.2 0 0 0 3.1416</pose></include>
++    <include>
++      <static>true</static><uri>model://pallet_rack_section</uri><name>pallet_rack_section_20</name><pose>-5.0 8.5 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://pallet_rack_section</uri><name>pallet_rack_section_21</name><pose>5.0 8.5 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://euro_pallet</uri><name>euro_pallet_22</name><pose>-6.5 7.0 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://euro_pallet</uri><name>euro_pallet_23</name><pose>-4.5 7.0 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://euro_pallet</uri><name>euro_pallet_24</name><pose>4.5 7.0 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://euro_pallet</uri><name>euro_pallet_25</name><pose>6.5 7.0 0 0 0 0</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_26</name><pose>-7.5 5.5 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_27</name><pose>-7.5 5.5 0.55 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_28</name><pose>-6.6 5.5 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_29</name><pose>7.5 5.5 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_30</name><pose>7.5 5.5 0.55 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_31</name><pose>-2.0 -9.0 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_32</name><pose>0.0 -9.0 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_33</name><pose>2.0 -9.0 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://cardboard_box</uri><name>cardboard_box_34</name><pose>2.6 -9.0 0 0 0 0.3</pose></include>
++    <include>
++      <static>true</static><uri>model://Fridge</uri><name>Fridge_35</name><pose>8.4 9.0 0 0 0 -0.6</pose></include>
 +  </world>
 +</sdf>
