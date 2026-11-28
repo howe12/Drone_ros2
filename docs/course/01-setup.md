@@ -252,7 +252,7 @@ prompt: |
 
 ### 2.5 环境可复现
 
-环境按锁定版本复现：PX4 v1.15.4、`px4_msgs` release/1.15、XTDrone2 锁定 commit，叠加 18 个补丁固化已踩过的坑（GStreamer 冲突、Qt5 缺失、QoS 死锁、多机工作目录冲突等）。实现见 `scripts/setup_workspace.sh` 与 `patches/`。
+环境按锁定版本复现：PX4 v1.15.4、`px4_msgs` release/1.15、XTDrone2 锁定 commit，叠加 19 个补丁固化已踩过的坑（GStreamer 冲突、Qt5 缺失、QoS 死锁、多机工作目录冲突等）。实现见 `scripts/setup_workspace.sh` 与 `patches/`。
 
 ### 2.6 `ros_gz` 为什么要源码编译
 
