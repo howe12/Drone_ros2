@@ -28,6 +28,16 @@
 
 本章依赖这些产出：`ros2 topic list | grep fmu` 能看到话题；`ros2 topic echo /x500_0/fmu/out/vehicle_status --once` 能看到 `arming_state` 和 `nav_state`。如果这两步还不通，先回第 1 章排障。
 
+## 本章地图
+
+| 步骤 | 你做什么 | 拿到的证据 |
+|---|---|---|
+| 1 | 观察飞行中 `arming_state` / `nav_state` 变化 | 状态值 1→2→1、`nav_state=14` |
+| 2 | 用 `PX4Interface` 写 30 行 `hover_node` | 飞机起飞到 3m 再降落 |
+| 3 | 理解 Offboard 三要素与顺序 | 能说出为什么必须先预流 |
+| 4 | 理解 NED 与 `alt()` 的符号关系 | 能解释 `pos.z=-5` 与 `alt()=5` |
+| 5 | 复现 QoS 死锁与 EKF 重置坑 | 能定位并修复 |
+
 ## 本章涉及的新概念
 
 | 术语 | 一句话解释 | 详细说明 |
@@ -316,6 +326,20 @@ how: |
 **原因**：MAVLink 命令按 `MAV_SYS_ID` 路由。第 N 架飞机的 SYS_ID 是 N+1，命令里的 `target_system` 写错（例如都写 1），命令会被 1 号机吃掉，2 号机收不到。
 
 **对策**：`PX4Interface` 构造时传入正确的 `target_system`；第 12 章详述。
+
+---
+
+## 你可能卡在这里
+
+| 现象 | 最可能原因 | 先跑这条命令 |
+|---|---|---|
+| 日志一直"等待 PX4 状态" | Agent 没起 / 命名空间错了 | `ros2 topic list \| grep fmu` |
+| 解锁被拒 | EKF 未稳定（预检不过） | 等 10–20s，或查 `ekf_stable` |
+| 切 Offboard 失败 | 没先预流设定点 | 确认 `tick > 20` 那段在跑 |
+| 飞机贴地爬行 | EKF 原点重置 | `ros2 topic echo {ns}/fmu/out/vehicle_local_position --once` |
+| 高度判断总反 | 用了 `pos.z` 而不是 `alt()` | 打印两者对比 |
+| 节点 CPU 冻结、心跳停 | QoS RELIABLE 死锁 | 查 `QOS_PUB` 是否为 BEST_EFFORT |
+| 自己写的节点收不到状态 | 订阅端 QoS 不匹配 | `ros2 topic info -v` 看两端 |
 
 ---
 
