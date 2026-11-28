@@ -676,6 +676,25 @@ xyz_down = xyz[idx]
 
 ---
 
+
+## 实验记录模板
+
+| 项 | 你的记录 |
+|---|---|
+| 机型 / 世界 | |
+| 相机分辨率 / 编码 | |
+| 相机实测频率 | |
+| 内参 fx / fy / cx / cy | |
+| IMU 实测频率 | |
+| 静止时加速度模长 | |
+| 激光视场 / 量程 / 频率 | |
+| 点云点数 / `point_step` | |
+| 是否出现 `inf` 点 | |
+| QoS 是否匹配 | |
+| 结论（一句话） | |
+
+---
+
 ## 小结与下一步
 
 你已经有能力给飞机"装眼睛"：换机型、确认话题、验证频率、识别脏数据。
@@ -686,7 +705,7 @@ xyz_down = xyz[idx]
 
 ---
 
-## 附录：本章机型与话题速查
+## 附录 A：机型与话题速查
 
 ### 机型对照
 
@@ -718,3 +737,102 @@ xyz_down = xyz[idx]
 |---|---|
 | 0007 / 0008 | 自建机架 4012/4013/4014、传感器桥接扩展 |
 | 0011 | `/clock` + 带协方差里程计桥接 |
+
+---
+
+## 附录 B：四类传感器消息字段速查
+
+写节点时最常查的就是这些字段名。按"消息类型 → 关键字段"组织。
+
+### `sensor_msgs/Image`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `header.stamp` | time | 采集时刻 |
+| `header.frame_id` | string | 坐标系（如 `x500_mono_cam_0/link/camera_link`） |
+| `height` / `width` | uint32 | 像素尺寸 |
+| `encoding` | string | `rgb8` / `bgr8` / `mono8` / `32FC1` |
+| `is_bigendian` | uint8 | 字节序（一般 0） |
+| `step` | uint32 | **每行字节数**（可能含填充） |
+| `data` | uint8[] | 裸字节 |
+
+**最常用**：`msg.data` + `msg.height` + `msg.width` + `msg.encoding` + `msg.step`。
+
+### `sensor_msgs/Imu`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `orientation` | Quaternion | 姿态四元数（顺序 x,y,z,w） |
+| `orientation_covariance` | float64[9] | 姿态协方差（-1 表示无效） |
+| `angular_velocity` | Vector3 | 角速度 rad/s |
+| `angular_velocity_covariance` | float64[9] | 角速度协方差 |
+| `linear_acceleration` | Vector3 | **含重力**的加速度 m/s² |
+| `linear_acceleration_covariance` | float64[9] | 加速度协方差 |
+
+**注意**：三个 `*_covariance` 是 3×3 矩阵展平成 9 个元素，**行优先**。
+
+### `sensor_msgs/LaserScan`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `angle_min` / `angle_max` | float32 | 起止角（弧度） |
+| `angle_increment` | float32 | 相邻束角度差 |
+| `time_increment` | float32 | 相邻束时间差 |
+| `scan_time` | float32 | 一帧扫描耗时 |
+| `range_min` / `range_max` | float32 | 有效量程 |
+| `ranges` | float32[] | 距离数组（无回波为 `inf`） |
+| `intensities` | float32[] | 强度（可能为空） |
+
+**最常用**：`ranges[i]` 对应角度 `angle_min + i*angle_increment`。
+
+### `sensor_msgs/PointCloud2`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `height` / `width` | uint32 | `height=1` 即无序点云 |
+| `fields` | PointField[] | 每个字段的名字/偏移/类型 |
+| `is_bigendian` | bool | 字节序 |
+| `point_step` | uint32 | **每点字节数** |
+| `row_step` | uint32 | 每行字节数 |
+| `data` | uint8[] | 裸字节 |
+| `is_dense` | bool | 是否含无效点（`inf`/`nan`） |
+
+**`fields` 长什么样**（课程的激光点云）：
+
+```text
+name=x         offset=0   datatype=FLOAT32  count=1
+name=y         offset=4   datatype=FLOAT32  count=1
+name=z         offset=8   datatype=FLOAT32  count=1
+name=intensity offset=12  datatype=FLOAT32  count=1
+name=ring      offset=16  datatype=UINT16   count=1
+name=time      offset=20  datatype=FLOAT32  count=1
+```
+
+**`point_step = 24`**（22 字节内容 + 2 字节对齐）。
+
+**解析点云的通用做法**（不依赖具体字段顺序）：
+
+```python
+import numpy as np
+n = msg.width * msg.height
+buf = np.frombuffer(msg.data, dtype=np.uint8).reshape(n, msg.point_step)
+# 按 fields 里的 offset 取 x/y/z
+off = {f.name: f.offset for f in msg.fields}
+xyz = np.stack([buf[:, off['x']:off['x']+4].view(np.float32).ravel(),
+                buf[:, off['y']:off['y']+4].view(np.float32).ravel(),
+                buf[:, off['z']:off['z']+4].view(np.float32).ravel()], axis=1)
+```
+
+**为什么不要硬编码 offset**：不同驱动、不同点类型（`PointXYZ` vs `PointXYZIRT`）的偏移不同。**读 `fields` 才是稳妥做法。**
+
+### `nav_msgs/Odometry`（对比用）
+
+| 字段 | 说明 |
+|---|---|
+| `pose.pose` | 位置 + 姿态 |
+| `pose.covariance` | 6×6 协方差（36 个元素） |
+| `twist.twist` | 线速度 + 角速度 |
+
+**`pose.covariance` 是关键**：第 7 章说"带协方差的里程计桥接"就是指这个字段必须有有效值。
+
+---
