@@ -9,6 +9,7 @@
 | aruco | ArUco 靶标场地, 精准降落 (E8) | XTDrone2 (贴图由我们替换为 DICT_4X4_50 ID42) | ✅ 实测 | `... xtd2 gz_x500 aruco` |
 | walls | 障碍墙场地, 避障/2D 激光 SLAM | XTDrone2 (与 PX4 同名世界内容不同) | ✅ 实测 (激光 30Hz) | `... xtd2 gz_x500_lidar_2d walls` |
 | **e7_obstacles** | 小块障碍群, 局部规划避障 (E7) | **自建** (补丁 0016) | ✅ 实测 | `... xtd2 gz_x500_depth e7_obstacles` |
+| **yolo_targets** | 3 车 + 3 行人, 目标检测（含 COCO 类别）| **自建** (补丁 0019 + Fuel 模型) | ✅ 实测 (person 0.71~0.81) | `... xtd2 gz_x500_mono_cam yolo_targets` |
 | lawn | 草地户外, 通用飞行 | PX4 上游 (`Tools/simulation/gz/worlds/lawn.sdf` 逐字节相同) | ✅ 实测 | `... xtd2 gz_x500 lawn` |
 | baylands | 湾区地形, 视觉/VIO | PX4 上游 (逐字节相同) | ✅ 实测 | `... xtd2 gz_x500 baylands` |
 | windy | 风扰测试 | PX4 上游 (逐字节相同) | 可用 | `... xtd2 gz_x500 windy` |

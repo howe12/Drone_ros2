@@ -1,0 +1,92 @@
+diff --git a/xtd2_gz_sim/worlds/yolo_targets.sdf b/xtd2_gz_sim/worlds/yolo_targets.sdf
+new file mode 100644
+index 0000000..7f40127
+--- /dev/null
++++ b/xtd2_gz_sim/worlds/yolo_targets.sdf
+@@ -0,0 +1,86 @@
++<?xml version="1.0" ?>
++<!--
++  yolo_targets: 目标检测专用世界
++  目的: 场景中包含 COCO 类别物体(人/车), 使 YOLOv8 在仿真中真正产生检测框
++  资产来源: Gazebo Fuel
++    - OpenRobotics/Standing person (CC0)  -> models/person_standing
++    - GoogleResearch/CITY_TAXI_POLICE_CAR -> models/yolo_car
++  用法: bash scripts/run_simulation.sh xtd2 gz_x500_mono_cam yolo_targets
++-->
++<sdf version="1.9">
++  <world name="yolo_targets">
++    <physics name="1ms" type="ignored">
++      <max_step_size>0.004</max_step_size>
++      <real_time_factor>1.0</real_time_factor>
++    </physics>
++    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
++    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
++    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
++    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
++      <render_engine>ogre2</render_engine>
++    </plugin>
++
++    <scene>
++      <ambient>0.5 0.5 0.5 1</ambient>
++      <background>0.75 0.8 0.85 1</background>
++      <sky></sky>
++    </scene>
++    <light type="directional" name="sun">
++      <cast_shadows>true</cast_shadows>
++      <pose>0 0 50 0 0 0</pose>
++      <diffuse>0.9 0.9 0.9 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <direction>-0.5 0.1 -0.9</direction>
++    </light>
++
++    <model name="ground_plane">
++      <static>true</static>
++      <link name="link">
++        <collision name="collision">
++          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
++        </collision>
++        <visual name="visual">
++          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
++          <material>
++            <ambient>0.35 0.38 0.32 1</ambient>
++            <diffuse>0.35 0.38 0.32 1</diffuse>
++          </material>
++        </visual>
++      </link>
++    </model>
++
++    <!-- 一排车辆: 沿 y 方向排列, 面向 +x -->
++    <include>
++      <uri>model://yolo_car</uri>
++      <name>car_0</name>
++      <pose>6 -3.0 0 0 0 1.5708</pose>
++    </include>
++    <include>
++      <uri>model://yolo_car</uri>
++      <name>car_1</name>
++      <pose>6 0.0 0 0 0 1.5708</pose>
++    </include>
++    <include>
++      <uri>model://yolo_car</uri>
++      <name>car_2</name>
++      <pose>6 3.0 0 0 0 1.5708</pose>
++    </include>
++
++    <!-- 行人: 车前方 -->
++    <include>
++      <uri>model://person_standing</uri>
++      <name>person_0</name>
++      <pose>3 -1.5 0 0 0 0</pose>
++    </include>
++    <include>
++      <uri>model://person_standing</uri>
++      <name>person_1</name>
++      <pose>3 1.5 0 0 0 0</pose>
++    </include>
++    <include>
++      <uri>model://person_standing</uri>
++      <name>person_2</name>
++      <pose>9 0.0 0 0 0 3.1416</pose>
++    </include>
++  </world>
++</sdf>

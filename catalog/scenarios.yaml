@@ -87,9 +87,9 @@ scenarios:
   # ---------------------------------------------------------------- L2 视觉
   - id: vision.yolo_detect
     level: L2
-    title: YOLO 目标检测节点
+    title: YOLO 目标检测（仿真内含人/车目标）
     model: gz_x500_mono_cam
-    world: baylands
+    world: yolo_targets      # 专用世界: 3 辆车 + 3 个行人 (COCO 类别)
     stack: auto
     namespaces: ['/x500_mono_cam_0']
     duration: 30

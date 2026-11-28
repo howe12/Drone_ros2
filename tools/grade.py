@@ -116,13 +116,13 @@ def cleanup_stale():
     """杀掉上一轮可能残留的仿真进程 (DDS 端口/共享内存占用会让新栈起不来)。
     用 pkill -x 精确进程名匹配, 不会误伤 python 自身。
     """
-    for name in ('gz', 'MicroXRCEAgent', 'px4'):
-        try:
-            subprocess.run(['pkill', '-9', '-x', name],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-        except Exception:
-            pass
-    time.sleep(3)
+    # 用统一清理脚本: `pkill -x gz` 对 `ruby .../gz sim ...` 无效(实测残留 16 个进程,
+    # 导致新测试连到旧世界), 必须按模式清理。
+    try:
+        subprocess.run(['bash', os.path.join(ROOT, 'scripts/clean_sim.sh'), '--quiet'],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    except Exception:
+        pass
 
 
 def wait_for_status(ns='/x500_0', timeout=180):

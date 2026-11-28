@@ -21,6 +21,8 @@ mkdir -p videos logs/grade
 export DISPLAY="${DISPLAY:-:0}"
 PY=/usr/bin/python3
 
+bash scripts/clean_sim.sh --quiet    # 每次录制前清场, 避免连到上一轮的实例
+
 for sid in "$@"; do
   echo "=========== $sid ==========="
   VID="videos/${sid}.mp4"

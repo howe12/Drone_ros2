@@ -244,7 +244,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 |---|---|---|---|---|
 | `ctrl.takeoff_hover_land` 起飞-悬停-降落 | ✅ **PASS** | 高度误差 0.21m / 32.5s / 正常上锁 | <0.4m / <75s | — |
 | `ctrl.waypoint_square` 正方形航点 | ✅ **PASS** | 到点误差 **0.26m** / 命中 **4/4** / 正常上锁 | <0.5m / ≥4 | [▶](videos/ctrl.waypoint_square.mp4) |
-| `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 启动成功 / 无异常退出 | — | 见下 |
+| `vision.yolo_detect` YOLO 检测 | ✅ **PASS** | 实时检出 person 0.71~0.81 | — | [▶](videos/vision.yolo_detect.mp4) |
 | `vision.aruco_precision_landing` 精准降落 | ✅ **PASS** | 落点偏差 **0.028–0.083m** / 正常上锁 | <0.15m | [▶](videos/vision.aruco_precision_landing.mp4) |
 | `slam.lio_odometry` 3D 激光里程计 | ✅ **PASS** | 高度误差 **0.002m** / 9.4Hz / 跨度 3.6m | <0.2m / >5Hz / >2m | — |
 | `plan.obstacle_avoidance` 障碍绕行 | ✅ **PASS** | 最近接近 **0.02m** / 障碍距离 0.99m | <0.8m / >0.8m | — |

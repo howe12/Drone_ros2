@@ -12,9 +12,9 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 MODEL="${1:-gz_x500_mono_cam}"
-WORLD="${2:-baylands}"
+WORLD="${2:-yolo_targets}"   # 含 COCO 目标(人/车)的专用世界
 TOPIC="/drone_sim_yolo_detector/annotated"
-SECS="${YOLO_REC_SECONDS:-30}"
+SECS="${YOLO_REC_SECONDS:-40}"
 export DISPLAY="${DISPLAY:-:0}"
 # 必须 source ROS 与工作空间: 否则看不到 px4_msgs 等话题, 就绪检测会永远失败(踩过)
 # 注意: ROS 的 setup.bash 引用了未定义变量, 与 set -u 冲突, 需临时关闭
@@ -26,6 +26,9 @@ export PATH="$HOME/.local/bin:/usr/bin:$PATH"
 export LD_LIBRARY_PATH="$HOME/.local/lib:${LD_LIBRARY_PATH:-}"
 PY=/usr/bin/python3
 mkdir -p videos logs/grade
+
+# 先清理残留: 上一轮若留下 gz 实例, 会和本次抢同名话题 (导致录到别的世界)
+bash scripts/clean_sim.sh --quiet
 
 echo "== 启动仿真栈 ($MODEL / $WORLD)"
 env DISPLAY="$DISPLAY" bash scripts/run_simulation.sh xtd2 "$MODEL" "$WORLD" \
@@ -49,8 +52,10 @@ YOLO=$!
 sleep 8
 
 # 让飞机飞起来，画面有变化（否则录到的是静止地面）
-timeout 60 ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_mono_cam_0 \
-    -p takeoff_altitude:=3.0 -p circle_duration:=20.0 > logs/grade/yolo_flight.log 2>&1 &
+# 低空绕圈掠过目标: 人(x=3,y=±1.5) / 车(x=6,y=±3), 半径 5 的圆会依次经过
+timeout 90 ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_mono_cam_0 \
+    -p takeoff_altitude:=3.0 -p circle_radius:=5.0 -p circle_speed:=0.25 \
+    -p circle_duration:=35.0 > logs/grade/yolo_flight.log 2>&1 &
 FLIGHT=$!
 
 echo "== 录制 $TOPIC ($SECS s)"
