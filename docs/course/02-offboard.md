@@ -870,3 +870,140 @@ m.timestamp = int(self.get_clock().now().nanoseconds / 1000)   # ns / 1000 = µs
 > **结论**：接口不是"偷懒"，是**把六个静默陷阱封起来**。手写一遍有助于理解，但生产代码该用接口。
 
 ---
+
+---
+
+## 附录 D：飞机不动时的排查树
+
+"发了指令但飞机不动"是 Offboard 最高频的问题。按这棵树的顺序走，**每一步都能排除掉一半可能**。
+
+### 第一步：节点活着吗
+
+```bash
+ros2 node list | grep -E "offboard|hover|your_node"
+```
+
+| 结果 | 下一步 |
+|---|---|
+| 没有这个节点 | 节点崩了 → 看终端报错 |
+| 有节点但无日志输出 | 卡在某处 → 下一步 |
+| 有日志在刷 | → 第三步 |
+
+### 第二步：它收到状态了吗
+
+```bash
+ros2 topic hz /x500_0/fmu/out/vehicle_status
+ros2 topic hz /x500_0/fmu/out/vehicle_local_position
+```
+
+| 结果 | 结论 |
+|---|---|
+| 两个都 0 Hz | **Agent 没起，或命名空间错** |
+| 一个有、一个没有 | 桥接配置不全 |
+| 都有数据 | → 第三步 |
+
+**这是最常见的一层**：90% 的"不动"是这里就断了。
+
+### 第三步：它在发设定点吗
+
+```bash
+ros2 topic hz /x500_0/fmu/in/trajectory_setpoint
+ros2 topic echo /x500_0/fmu/in/trajectory_setpoint --once
+```
+
+| 结果 | 结论 |
+|---|---|
+| 0 Hz | 节点逻辑没走到发布（条件判断卡住） |
+| 有数据但内容是 0 | 目标点没算出来 |
+| 正常 | → 第四步 |
+
+**"有数据但内容是 0"** 常出现在：`target` 初始化成 `[0,0,0]` 而状态机还没更新它。
+
+### 第四步：PX4 认这个流吗
+
+```bash
+ros2 topic echo /x500_0/fmu/in/offboard_control_mode --once
+ros2 topic echo /x500_0/fmu/out/vehicle_status --once --field nav_state
+```
+
+| `nav_state` | 结论 |
+|---|---|
+| 14 | 已在 Offboard → 第五步 |
+| 其他（如 2=POSCTL） | **没切进 Offboard** → 看下面 |
+
+**没切进 Offboard 的三种原因**：
+
+| 原因 | 检查 |
+|---|---|
+| 预流不够 | 是否发了 ≥ 20 拍再切 |
+| 模式命令无效 | `param2` 是否为 6（不是 14！） |
+| EKF 未稳 | `ekf_stable` 是否为真 |
+
+### 第五步：解锁了吗
+
+```bash
+ros2 topic echo /x500_0/fmu/out/vehicle_status --once --field arming_state
+```
+
+| 值 | 含义 |
+|---|---|
+| 1 | 未解锁 |
+| 2 | 已解锁 |
+
+**未解锁的原因**：
+
+| 原因 | 怎么查 |
+|---|---|
+| EKF 预检不过 | 看 PX4 日志的 preflight 项 |
+| 命令 `target_system` 错 | 多机时必查（第 12 章） |
+| 遥控器在接管 | 检查 RC 开关位置 |
+
+### 第六步：位姿在变吗
+
+```bash
+ros2 topic echo /x500_0/pose --once
+sleep 2
+ros2 topic echo /x500_0/pose --once
+```
+
+| 结果 | 结论 |
+|---|---|
+| 数值变了 | 飞机在动 → 只是没到你想的地方（目标点问题） |
+| 数值没变 | 飞控拒绝了指令 → 看 PX4 日志 |
+
+**到这一步还没动**，就看 PX4 自己的日志（不是你的节点日志）：
+
+```bash
+tail -50 logs/px4_*.log | grep -iE "reject|fail|failsafe"
+```
+
+### 排查树一览
+
+```text
+节点活着？
+ ├─否 → 看报错
+ └─是 → 收到状态？
+      ├─否 → Agent / 命名空间
+      └─是 → 发设定点？
+           ├─否 → 逻辑卡住
+           └─是 → nav_state=14？
+                ├─否 → 预流/模式号/EKF
+                └─是 → 解锁了？
+                     ├─否 → 预检/target_system
+                     └─是 → 位姿变了？
+                          ├─否 → 看 PX4 日志
+                          └─是 → 目标点问题
+```
+
+### 六个命令记下来
+
+```bash
+ros2 node list | grep offboard
+ros2 topic hz <ns>/fmu/out/vehicle_status
+ros2 topic hz <ns>/fmu/in/trajectory_setpoint
+ros2 topic echo <ns>/fmu/out/vehicle_status --once --field nav_state
+ros2 topic echo <ns>/fmu/out/vehicle_status --once --field arming_state
+ros2 topic echo <ns>/pose --once
+```
+
+**这六条能定位 95% 的"不动"问题**——因为 Offboard 就是一条固定链路，逐段查必能找到断点。
