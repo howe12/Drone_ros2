@@ -21,6 +21,9 @@ from px4_msgs.msg import (OffboardControlMode, TrajectorySetpoint, VehicleComman
                           VehicleStatus, VehicleLocalPosition, VehicleAirData)
 
 
+from drone_sim.paths import log_path
+
+
 class VtolDemo(Node):
     def __init__(self):
         super().__init__('drone_sim_vtol_demo')
@@ -28,7 +31,7 @@ class VtolDemo(Node):
         self.declare_parameter('target_system', 1)
         self.declare_parameter('cruise_alt', 20.0)
         self.declare_parameter('fw_leg_time', 18.0)
-        self.declare_parameter('log_file', '/develop/IDEA/Drone_ros2/logs/e11_vtol.log')
+        self.declare_parameter('log_file', log_path('e11_vtol.log'))
         ns = self.get_parameter('px4_ns').value
         self.target_system = self.get_parameter('target_system').value
         self.alt = self.get_parameter('cruise_alt').value

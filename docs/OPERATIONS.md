@@ -4,10 +4,10 @@
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /develop/IDEA/Drone_ros2/ros2_ws/install/setup.bash
+source ros2_ws/install/setup.bash        # 在仓库根目录执行
 export PATH=/usr/bin:$HOME/.local/bin:$PATH
 export LD_LIBRARY_PATH=$HOME/.local/lib:$LD_LIBRARY_PATH   # 仅启动 Agent 的终端需要
-cd /develop/IDEA/Drone_ros2
+cd "$(git rev-parse --show-toplevel)"    # 回到仓库根目录（或直接 cd 你的克隆目录）
 ```
 
 顺序不能反：先 humble 底座，再叠加工作空间 overlay。`cd` 到哪不重要，`source` 才重要

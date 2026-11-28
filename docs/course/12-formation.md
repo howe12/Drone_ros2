@@ -14,7 +14,7 @@
 ```bash
 # 一条 launch 拉起双机全套（各自独立 gz 模型 + PX4 实例 + Agent 会话）:
 ros2 launch drone_sim multi_vehicle.launch.py num:=2 world:=aruco \
-  px4_dir:=/develop/IDEA/Drone_ros2/PX4-Autopilot    # 换成你的 PX4 路径
+  px4_dir:="$PWD/PX4-Autopilot"    # 仓库根目录下的 PX4（clone 后自带的路径）
 
 # 终端2: 领航机飞正方形
 ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square

@@ -27,6 +27,9 @@ from px4_msgs.msg import (OffboardControlMode, TrajectorySetpoint,
 
 
 # ---------------------------------------------------------------- PX4 接口
+from drone_sim.paths import log_path
+
+
 class DroneInterface:
     """与 PX4 交互的共享接口 (心跳/解锁/设定点/状态)"""
 
@@ -379,7 +382,7 @@ class BtMission(Node):
         self.declare_parameter('px4_ns', '/x500_0')
         self.declare_parameter('mission_xml', '')
         self.declare_parameter('target_system', 1)
-        self.declare_parameter('log_file', '/develop/IDEA/Drone_ros2/logs/e10_bt.log')
+        self.declare_parameter('log_file', log_path('e10_bt.log'))
         ns = self.get_parameter('px4_ns').value
         xml_path = self.get_parameter('mission_xml').value
         target = self.get_parameter('target_system').value

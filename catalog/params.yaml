@@ -13,7 +13,7 @@ nodes:
       target_system: {type: int, default: 1}
   bt_mission:
     params:
-      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e10_bt.log'}
+      log_file: {type: expr, default: log_path('e10_bt.log'}
       mission_xml: {type: str, default: ''}
       px4_ns: {type: str, default: '/x500_0'}
       target_system: {type: int, default: 1}
@@ -54,11 +54,14 @@ nodes:
       px4_ns: {type: str, default: ''}
       takeoff_altitude: {type: float, default: 5.0}
       target_system: {type: int, default: 1}
+  paths:
+    params:
+      log_file: {type: expr, default: log_path('e10_bt.log'}
   planner_reactive:
     params:
       cruise_z: {type: float, default: 1.2}
       goal_tol: {type: float, default: 0.5}
-      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e7_reactive.log'}
+      log_file: {type: expr, default: log_path('e7_reactive.log'}
       max_speed: {type: float, default: 1.2}
       px4_ns: {type: str, default: '/x500_depth_0'}
       safe_dist: {type: float, default: 1.8}
@@ -68,7 +71,7 @@ nodes:
       target_z: {type: float, default: 1.2}
   safety_supervisor:
     params:
-      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e12_safety.log'}
+      log_file: {type: expr, default: log_path('e12_safety.log'}
       max_altitude: {type: float, default: 25.0}
       max_radius: {type: float, default: 15.0}
       max_speed: {type: float, default: 8.0}
@@ -79,7 +82,7 @@ nodes:
   swarm_agent:
     params:
       goal_tol: {type: float, default: 0.4}
-      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e9_agent.log'}
+      log_file: {type: expr, default: log_path('e9_agent.log'}
       max_speed: {type: float, default: 1.5}
       neighbors: {type: str, default: ''}
       px4_ns: {type: str, default: '/x500_0'}
@@ -97,7 +100,7 @@ nodes:
     params:
       cruise_alt: {type: float, default: 20.0}
       fw_leg_time: {type: float, default: 18.0}
-      log_file: {type: str, default: '/develop/IDEA/Drone_ros2/logs/e11_vtol.log'}
+      log_file: {type: expr, default: log_path('e11_vtol.log'}
       px4_ns: {type: str, default: '/standard_vtol_0'}
       target_system: {type: int, default: 1}
   waypoint_mission:
@@ -111,6 +114,7 @@ nodes:
       topic_prefix: {type: str, default: ''}
   yolo_detector:
     params:
+      classes: {type: str, default: ''}
       conf: {type: float, default: 0.4}
       image_topic: {type: str, default: '/x500_mono_cam_0/camera/image_raw'}
       infer_every_n: {type: int, default: 5}

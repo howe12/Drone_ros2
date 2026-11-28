@@ -27,6 +27,9 @@ from px4_msgs.msg import (VehicleCommand, VehicleLocalPosition, VehicleStatus, V
 from std_msgs.msg import Bool
 
 
+from drone_sim.paths import log_path
+
+
 class SafetySupervisor(Node):
     def __init__(self):
         super().__init__('drone_sim_safety_supervisor')
@@ -37,7 +40,7 @@ class SafetySupervisor(Node):
         self.declare_parameter('min_altitude', 0.15)
         self.declare_parameter('max_speed', 8.0)
         self.declare_parameter('max_tilt_deg', 45.0)
-        self.declare_parameter('log_file', '/develop/IDEA/Drone_ros2/logs/e12_safety.log')
+        self.declare_parameter('log_file', log_path('e12_safety.log'))
 
         ns = self.get_parameter('px4_ns').value
         self.target_system = self.get_parameter('target_system').value

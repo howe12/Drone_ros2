@@ -28,6 +28,9 @@ from px4_msgs.msg import (
 )
 
 
+from drone_sim.paths import log_path
+
+
 class ArucoPrecisionLanding(Node):
     def __init__(self):
         super().__init__('drone_sim_aruco_precision_landing')
@@ -95,9 +98,8 @@ class ArucoPrecisionLanding(Node):
         self.err_window = []       # 最终阶段误差滑窗 (统计居中判定)
         self.create_timer(0.1, self.loop)
         # 直接文件日志 (绕过 C stdout 管道缓冲, 实时可查)
-        import os
-        os.makedirs(os.path.expanduser('/develop/IDEA/Drone_ros2/logs'), exist_ok=True)
-        self.dbg = open('/develop/IDEA/Drone_ros2/logs/e8_debug.log', 'a', buffering=1)
+        # 路径可移植: 跟随仓库位置, 见 drone_sim/paths.py
+        self.dbg = open(log_path('e8_debug.log'), 'a', buffering=1)
         self.get_logger().info(f'ArUco 精准降落启动: 靶标 ID{self.marker_id}, 起飞 {self.alt}m')
 
     def dlog(self, s):

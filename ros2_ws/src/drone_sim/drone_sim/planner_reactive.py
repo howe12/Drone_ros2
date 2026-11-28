@@ -27,6 +27,9 @@ from geometry_msgs.msg import PoseArray
 from sensor_msgs.msg import Image
 
 
+from drone_sim.paths import log_path
+
+
 class PlannerReactive(Node):
     def __init__(self):
         super().__init__('drone_sim_planner_reactive')
@@ -39,7 +42,7 @@ class PlannerReactive(Node):
         self.declare_parameter('max_speed', 1.2)
         self.declare_parameter('safe_dist', 1.8)
         self.declare_parameter('goal_tol', 0.5)
-        self.declare_parameter('log_file', '/develop/IDEA/Drone_ros2/logs/e7_reactive.log')
+        self.declare_parameter('log_file', log_path('e7_reactive.log'))
 
         ns = self.get_parameter('px4_ns').value
         self.target_system = self.get_parameter('target_system').value

@@ -23,6 +23,9 @@ from px4_msgs.msg import (OffboardControlMode, TrajectorySetpoint, VehicleComman
 from geometry_msgs.msg import PoseArray
 
 
+from drone_sim.paths import log_path
+
+
 class SwarmAgent(Node):
     def __init__(self):
         super().__init__('drone_sim_swarm_agent')
@@ -36,7 +39,7 @@ class SwarmAgent(Node):
         self.declare_parameter('max_speed', 1.5)
         self.declare_parameter('goal_tol', 0.4)
         self.declare_parameter('timeout', 90.0)
-        self.declare_parameter('log_file', '/develop/IDEA/Drone_ros2/logs/e9_agent.log')
+        self.declare_parameter('log_file', log_path('e9_agent.log'))
 
         self.ns = self.get_parameter('px4_ns').value
         self.target_system = self.get_parameter('target_system').value

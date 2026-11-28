@@ -213,7 +213,7 @@ scenarios:
     node_log_index: 2               # 第 3 条命令 = formation_follower, 读它自报的编队误差
     duration: 75
     command: |
-      ros2 launch drone_sim multi_vehicle.launch.py num:=2 world:=aruco px4_dir:=/develop/IDEA/Drone_ros2/PX4-Autopilot
+      ros2 launch drone_sim multi_vehicle.launch.py num:=2 world:=aruco px4_dir:=$(pwd)/PX4-Autopilot
       ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_0 mission:=square
       ros2 run drone_sim formation_follower --ros-args -p leader_ns:=/x500_0 -p follower_ns:=/x500_1 -p target_system:=2
     metrics:
