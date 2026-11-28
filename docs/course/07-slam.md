@@ -541,6 +541,60 @@ odom_tf = Node(
 
 **这三件事的顺序有意义**：先有 TF，再有 SLAM。TF 缺一环，SLAM 就静默不工作（2.3 节）。
 
+### 4.4 逐段读 `odom_to_tf.py`：53 行里最关键的一行
+
+这个节点只干一件事：把 `nav_msgs/Odometry` 转成 TF 广播。
+
+```python
+def cb(self, msg):
+    t = TransformStamped()
+    t.header.stamp = msg.header.stamp     # ← 关键
+    t.header.frame_id = self.odom_frame
+    t.child_frame_id = self.base_frame
+    t.transform.translation.x = msg.pose.pose.position.x
+    ...
+    self.br.sendTransform(t)
+```
+
+**为什么 `msg.header.stamp` 是关键**
+
+如果写成 `self.get_clock().now()`，TF 的时间戳就变成"发布时刻"，而激光扫描的时间戳是"采集时刻"。两者差几毫秒到几十毫秒。
+
+**后果**：
+
+| 现象 | 原因 |
+|---|---|
+| `Lookup would require extrapolation into the future` | TF 比 scan 晚 |
+| `Lookup would require extrapolation into the past` | TF 比 scan 早太多 |
+| 建图"抖动"或墙变厚 | 每个 scan 用了略微错位的位姿 |
+
+**根因**：`slam_toolbox` 要按 scan 的时间戳去查 TF。**时间戳必须描述"这个位姿对应哪个时刻"，而不是"我什么时候算出来"。**
+
+**这条规则适用于所有 TF 广播**：
+
+> **时间戳来自数据，不来自时钟。**
+
+**第二个细节：QoS**
+
+```python
+self.create_subscription(Odometry, topic, self.cb, qos_profile_sensor_data)
+```
+
+用传感器 QoS（BEST_EFFORT）。如果桥接端发的是 BEST_EFFORT 而这个节点订阅 RELIABLE，就会静默收不到（第 3 章的坑）。
+
+**第三个细节：TF 不带协方差**
+
+`TransformStamped` 里没有协方差字段。但 `slam_toolbox` 需要它——这就是为什么第 2.3 节的"四件套"里有一条是"**带协方差的里程计桥接**"。
+
+**换句话说**：
+
+```text
+Odometry 消息  →  带协方差, 给 slam_toolbox 用
+同一份数据     →  转成 TF, 给坐标查询用
+```
+
+**两条路都要通**，少一条就不工作。
+
 ---
 
 ## 常见误解
