@@ -711,6 +711,7 @@ ls -l ros2_ws/install/drone_sim/lib/python3.*/site-packages/drone_sim/<你的文
 
 ---
 
+
 ## 小结与下一步
 
 本章完成了环境复现和一次自动起降，并用判分拿到可核验的指标：高度误差 0.3m、耗时 18.6s、3/3 PASS。
@@ -718,3 +719,119 @@ ls -l ros2_ws/install/drone_sim/lib/python3.*/site-packages/drone_sim/<你的文
 飞机能飞了，但你还不知道它**为什么**听话：节点在请求解锁前做了什么判断、NED 下 `z` 为什么是负的、EKF 原点重置会怎样影响定位。这些是第 2 章的内容。
 
 [下一章：Offboard 控制与 PX4Interface →](course/02-offboard.md)
+
+---
+
+## 附录 A：仓库目录结构
+
+第一次 clone 下来会看到一堆目录，这张表说明每个是干什么的。
+
+| 目录 | 内容 | 要不要动 |
+|---|---|---|
+| `PX4-Autopilot/` | PX4 固件源码（SITL 编译产物在这里） | 打补丁时才动 |
+| `Micro-XRCE-DDS-Agent/` | Agent 源码（通常用预编译版即可） | 一般不动 |
+| `third_party/` | XTDrone2、VINS-Fusion、ego-planner 等上游代码 | 打补丁时才动 |
+| `ros2_ws/` | 课程自己的 ROS2 工作区（节点、launch、config、models） | **主要改这里** |
+| `patches/` | 19 个补丁（第 2.8 节） | 只读 |
+| `scripts/` | 启动/录屏/判分/同步等 20 个脚本 | 可读可改 |
+| `tools/` | `grade.py`、`gen_params.py` 等 Python 工具 | 只读 |
+| `catalog/` | `scenarios.yaml`、`params.yaml`（唯一事实源） | **不要手改**（由脚本生成） |
+| `docs/` | 课程站点与全部文档 | 改文档时动这里 |
+| `logs/` | 运行日志（判分读这里） | 可清 |
+| `maps/` | 建图产物（`.pgm` + `.yaml`） | 可清 |
+| `screenshots/` | 截图素材 | 只增 |
+| `videos/` | 录屏素材（`.mp4` / `.gif`） | 可清（大） |
+| `weights/` | 模型权重（YOLO 等，数百 MB） | 只读 |
+
+**注意两类"大且可清"的目录**：`logs/`（几十 MB）、`videos/`（几十 MB）、`weights/`（数百 MB 到 GB）。**clone 后如果空间紧张，先看这三个。**
+
+**课程自己的代码在哪**：
+
+```text
+ros2_ws/src/drone_sim/
+├── drone_sim/        ← 14 个节点的 Python 源码
+│   ├── px4_interface.py          所有节点的公共入口（第 2 章）
+│   ├── offboard_demo.py          首飞演示
+│   ├── waypoint_mission.py       航点（第 4 章）
+│   ├── yolo_detector.py          检测（第 5 章）
+│   ├── aruco_precision_landing.py 降落（第 6 章）
+│   ├── lidar3d_adapter.py       点云适配（第 7 章）
+│   ├── odom_to_tf.py            里程计转 TF（第 7 章）
+│   ├── vio_evaluator.py         VIO 评测（第 8 章）
+│   ├── planner_reactive.py      反应式避障（第 9 章）
+│   ├── ego_bridge.py            ego-planner 桥接（第 9 章）
+│   ├── bt_mission.py            行为树（第 10 章）
+│   ├── safety_supervisor.py     安全监督（第 11 章）
+│   ├── formation_follower.py    编队（第 12 章）
+│   ├── swarm_agent.py           集群（第 13 章）
+│   └── vtol_demo.py             VTOL（第 14 章）
+├── launch/           ← 启动文件
+├── config/           ← YAML 配置（任务、slam_toolbox、VINS 等）
+└── models/           ← 模型权重（YOLO）
+```
+
+**一个规律**：**每章对应一个节点文件**。想深挖哪章，直接读对应文件。
+
+## 附录 B：常用命令速查
+
+### 环境
+
+```bash
+source /opt/ros/humble/setup.bash
+source <仓库>/ros2_ws/install/setup.bash
+echo $AMENT_PREFIX_PATH | tr ':' '\n' | grep -E "ros2_ws|opt/ros"
+```
+
+### 编译
+
+```bash
+cd <仓库>/ros2_ws
+colcon build --symlink-install              # 全量
+colcon build --packages-select drone_sim    # 只编本包
+```
+
+### 启动
+
+```bash
+bash scripts/run_simulation.sh xtd2 gz_x500 aruco          # 平台 机型 世界
+bash scripts/clean_sim.sh                                   # 清残留进程
+bash scripts/run_yolo.sh <image_topic> [model] [classes]
+```
+
+### 观察
+
+```bash
+ros2 topic list | grep fmu
+ros2 topic hz <topic>
+ros2 topic echo <topic> --once
+ros2 topic info -v <topic>                  # 看 QoS
+ros2 param list <node>
+ros2 node list
+ros2 pkg executables drone_sim
+```
+
+### TF
+
+```bash
+ros2 run tf2_tools view_frames              # 生成 frames.pdf
+ros2 run tf2_ros tf2_echo map base_link
+```
+
+### 判分
+
+```bash
+python3 tools/grade.py --list
+python3 tools/grade.py --scenario <id> --runs 3 --json out.json --md out.md
+```
+
+### 排障（本课程常用）
+
+```bash
+ps -ef | grep -E "px4|gz sim|MicroXRCE" | grep -v grep    # 看残留
+bash scripts/clean_sim.sh                                  # 清场
+bash scripts/sim2real_check.sh                             # 环境自检
+```
+
+**注意最后一条**：`ps | grep` 里带上 `grep -v grep` 是为了排除 grep 自己——**这是 shell 里最常见的误判来源**。
+
+---
