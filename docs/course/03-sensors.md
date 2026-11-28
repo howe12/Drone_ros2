@@ -1,29 +1,136 @@
 # 03 传感器话题桥接
 
-> 难度 L1 · 对应实验 E1（Issue #1，已完成）· 视觉/SLAM/避障章的前置
+> 难度 L1 · 对应实验 E1 · 视觉/SLAM/避障三章的前置 · 预计 40 分钟
+
+## 本章问题
+
+前两章你只用了一架"裸机"：除了 IMU，它什么传感器都没有。
+
+可到了第 5 章要做 YOLO 检测，第 7 章要用激光建图，第 9 章要拿深度图避障——**同一架飞机，怎么突然就有了相机和激光？**
+
+答案是：换机型。但要解决三个问题：
+
+1. 哪个任务该用哪个机型，怎么一条命令换装。
+2. Gazebo 里的传感器数据，是怎么变成 ROS2 话题的。
+3. 拿到的数据是不是真的——频率够不够、内参对不对、有没有脏数据。
+
+第三点最容易被忽略，也最容易在后面的章节里埋雷。
 
 ## 学习目标
 
-- 会按任务选机型（相机/深度/2D激光/3D激光），一条命令换装
-- 理解 Gazebo→ROS2 的传感器桥接（ros_gz_bridge + 命名空间推导）
-- 用 `ros2 topic hz` 验证每种传感器的真实频率
+| 维度 | 学习前 | 学习后 |
+|---|---|---|
+| 机型选择 | 只会用默认的 `gz_x500` | 能按任务选机型，知道每种机型带什么传感器 |
+| 桥接原理 | 以为话题是"自然就有"的 | 能画出 Gazebo 插件 → `ros_gz_bridge` → ROS2 话题这条链 |
+| 数据验证 | 看到话题有数据就以为没问题 | 会用 `ros2 topic hz` 和 `camera_info` 核对频率与内参 |
+| 数据质量 | 不知道点云里会有坏点 | 能识别并处理 `inf` 点和缺失字段 |
+| 排障 | 节点收不到数据就怀疑代码 | 能区分"没发布"和"QoS 不匹配" |
 
-## 3.1 机型库：按传感器选飞机
+## 前置知识
 
-| 机型 | 传感器 | 启动命令 | 用途章节 |
+需要会用 `ros2 topic list`、`ros2 topic echo`（第 1 章用过）。不要求懂图像处理或点云算法。
+
+**先跑，再懂。** 第 1 节先换一架带相机的飞机，看到图像；第 2 节解释数据是怎么流过来的。频率和内参这类数字，第一遍不用记，会用命令查就行。
+
+## 本章地图
+
+| 步骤 | 你做什么 | 拿到的证据 |
+|---|---|---|
+| 1 | 启动带相机机型，订阅图像话题 | `ros2 topic hz` 有稳定输出 |
+| 2 | 回头理解桥接链路与命名空间 | 能说出话题名怎么来的 |
+| 3 | 验证频率/内参，排查三种脏数据 | 能解释 QoS 静默失败 |
+
+---
+
+## 1. 先让它动起来（最小路径）
+
+### 1.1 换一架带相机的飞机
+
+```bash
+bash scripts/run_simulation.sh xtd2 gz_x500_mono_cam
+```
+
+注意命令末尾多了个参数——这就是"换机型"。命名空间会跟着变：
+
+```text
+gz_x500            → /x500_0
+gz_x500_mono_cam   → /x500_mono_cam_0
+```
+
+规则是固定的：**机型名去掉 `gz_` 前缀，加 `_实例号`**。第 1 架实例号是 0。
+
+### 1.2 看图像与频率
+
+新终端：
+
+```bash
+source /opt/ros/humble/setup.bash
+source <仓库路径>/ros2_ws/install/setup.bash
+
+ros2 topic hz /x500_mono_cam_0/camera/image_raw
+```
+
+预期输出（约 3 秒后开始打印）：
+
+```text
+average rate: 23.6
+	min: 0.035s max: 0.052s std dev: 0.003s window: 25
+```
+
+**23.6 Hz** —— 记住这个数，它决定了后面视觉算法的上限。相机只有 23.6 帧/秒时，你的检测不可能比它更快。
+
+![相机画面](images/07_camera_frame.png)
+
+**相机看到的画面：机头前方的世界，1280×960。**
+
+### 1.3 确认内参
+
+```bash
+ros2 topic echo /x500_mono_cam_0/camera/camera_info --once | grep -A2 "k:"
+```
+
+预期能看到 `fx`、`fy` ≈ **539.94**，以及图像宽高 1280×960。**内参**是相机的"焦距与像素的换算比例"，测距、反投影、VIO 全靠它；内参错了，算出来的距离就全错。
+
+---
+
+## 2. 刚才发生了什么（回头理解原理）
+
+### 2.1 为什么"换个任务"要换机型
+
+传感器的**物理属性**，不是软件开关。多装一个相机，意味着模型上多一个挂载点、多一份质量、多一条数据线。所以课程把它们做成了不同机型：
+
+| 机型 | 传感器 | 启动命令 | 后续用在哪 |
 |---|---|---|---|
 | `gz_x500` | IMU | `run_simulation.sh xtd2` | 控制入门 |
 | `gz_x500_mono_cam` | 前置单目相机 | `run_simulation.sh xtd2 gz_x500_mono_cam` | 05 YOLO / 08 VIO |
 | `gz_x500_depth` | OakD 深度相机 | `run_simulation.sh xtd2 gz_x500_depth` | 09 避障 |
-| `gz_x500_mono_cam_down` | 下视相机（自建机架4013） | `run_simulation.sh xtd2 gz_x500_mono_cam_down` | 06 精准降落 |
-| `gz_x500_lidar_2d` | 2D 激光（自建机架4012） | `run_simulation.sh xtd2 gz_x500_lidar_2d` | 07 2D SLAM |
-| `gz_x500_lidar_3d` | 16线3D激光（自建机架4014） | `run_simulation.sh xtd2 gz_x500_lidar_3d` | 07 3D SLAM |
+| `gz_x500_mono_cam_down` | 下视相机（自建机架 4013） | `run_simulation.sh xtd2 gz_x500_mono_cam_down` | 06 精准降落 |
+| `gz_x500_lidar_2d` | 2D 激光（自建机架 4012） | `run_simulation.sh xtd2 gz_x500_lidar_2d` | 07 2D SLAM |
+| `gz_x500_lidar_3d` | 16 线 3D 激光（自建机架 4014） | `run_simulation.sh xtd2 gz_x500_lidar_3d` | 07 3D SLAM |
 
-命名空间自动推导：`gz_x500_mono_cam` → `/x500_mono_cam_0`（去掉 `gz_` 前缀 + 实例号）。
+**机架（airframe）**是 PX4 的概念：一份"机型 + 参数"的配置模板，决定飞控用哪套控制器和混控。课程的 4012/4013/4014 是自建机架，用来让 PX4 认识这三种新机型。
 
-## 3.2 传感器话题速查（实测频率）
+### 2.2 数据是怎么流过来的
 
-| 话题（`{ns}` = 机型命名空间） | 类型 | 实测 |
+```text
+Gazebo 传感器插件 --gz.transport--> ros_gz_bridge(parameter_bridge) --DDS--> ROS2 话题
+```
+
+三步：
+
+1. **Gazebo 插件**在仿真里产生数据（相机渲染出图、激光算交点）；
+2. **`ros_gz_bridge`** 把 gz.transport 的消息转成 ROS2 消息类型；
+3. 转换后的消息发到 DDS，于是 `ros2 topic echo` 能看到。
+
+桥接配置是 YAML 模板，按命名空间实例化；课程补丁 0007/0008 加了三个自建机架和传感器桥接扩展，补丁 0011 加了 `/clock` 与带协方差的里程计（SLAM 需要）。
+
+> **Humble 的 `ros_gz` 必须源码编译才能对接 Harmonic**——官方二进制只支持 Fortress。这一步 `setup_workspace.sh` 已经处理，你不需要手做。
+
+### 2.3 各类传感器的实测频率
+
+下表是本仓库实测值（`{ns}` 替换成实际命名空间）：
+
+| 话题 | 类型 | 实测 |
 |---|---|---|
 | `{ns}/camera/image_raw` | sensor_msgs/Image | 23.6 Hz, 1280×960 |
 | `{ns}/camera/camera_info` | CameraInfo | 内参 fx=fy=539.94 |
@@ -31,40 +138,124 @@
 | `{ns}/scan` | sensor_msgs/LaserScan | 30.4 Hz, 270°/30m |
 | `{ns}/depth_camera/image_raw` | Image（深度） | 25.6 Hz |
 | `{ns}/depth_camera/points` | PointCloud2 | 28.1 Hz |
-| `{ns}/lidar_3d/points` | PointCloud2（16线） | 见 07 章 |
+| `{ns}/lidar_3d/points` | PointCloud2（16 线） | 见第 7 章 |
 | `{ns}/pose` | PoseArray | **gz 世界系真值**（判分用） |
-| `/clock` | Clock | 仿真时钟（use_sim_time 全链路） |
+| `/clock` | Clock | 仿真时钟（`use_sim_time` 全链路） |
 
-验证方法：
+几个名词：
 
-```bash
-ros2 topic hz /x500_mono_cam_0/camera/image_raw
-ros2 topic echo /x500_mono_cam_0/camera/camera_info --once   # 看内参
+- **IMU**：惯性测量单元，输出加速度和角速度，253 Hz。它是飞控和 VIO 的核心输入。
+- **LaserScan**：2D 激光的一圈距离读数；**PointCloud2** 是三维点云。两者都是"点"，但 2D 是一圈、3D 是一片。
+- **`/clock` 与 `use_sim_time`**：仿真里时间要跟着仿真走而不是墙上时钟，否则 TF 和消息时间戳会打架。节点必须设 `use_sim_time:=true`。
+
+### 2.4 频率差意味着什么
+
+IMU 253 Hz，相机 23.6 Hz，相差十倍。
+
+这不是设计缺陷，而是物理现实：IMU 是电子器件，读得快；相机要曝光和传输，慢得多。**快的准不了（IMU 积分会漂），准的快不了（相机帧率低）**——所以要融合。这正是第 8 章 VIO（视觉惯性里程计）要解决的问题：用 253 Hz 的 IMU 补 23.6 Hz 相机的空档。
+
+---
+
+## 3. 扩展：案例与排障
+
+### 案例 1：`ros2 topic echo` 能收到，节点收不到
+
+**现象**：手动 `ros2 topic echo` 有数据，但自己写的订阅节点一条也收不到，也不报错。
+
+**原因**：QoS 不匹配。传感器话题发布端是 **BEST_EFFORT**，订阅端若用默认 **RELIABLE**，两者不兼容——**静默收不到，不报错**。
+
+**修复**：订阅时显式指定：
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
+self.create_subscription(Image, topic, self.cb, qos)
 ```
 
-![相机画面](images/07_camera_frame.png)
+**要点**：这是本课程最隐蔽的一类故障——**没有错误信息**。凡是"话题有数据、节点收不到"，先查 QoS。
 
-## 3.3 桥接是怎么工作的
+### 案例 2：点云里的 `inf` 点
 
-```
-Gazebo 传感器插件 --gz.transport--> ros_gz_bridge(parameter_bridge) --DDS--> ROS2 话题
-```
+**现象**：激光打到远处没有回波，点云里出现 `inf` 坐标。
 
-- 桥接配置是 yaml 模板（`xtd2_launch/launch/launch_config/`），按命名空间实例化
-- 课程补丁 0007/0008：新增机架 4012/4013/4014、传感器桥接扩展
-- 补丁 0011：`/clock` + 带协方差里程计桥接（SLAM 需要）
-- **Humble 的 ros_gz 必须源码编译对接 Harmonic**（二进制只支持 Fortress）——setup 脚本已处理
+**后果**：直接喂给 LIO（激光惯性里程计）会破坏内部数据结构（ikd-tree），导致位姿发散、建图崩掉。
 
-## 3.4 故障实验室
+**修复**：过滤。第 7 章的 `lidar3d_adapter.py` 做这件事——进算法前先剔除 `inf`/`nan` 点。
 
-1. **QoS 连不上**：传感器话题是 BEST_EFFORT，订阅端用默认 RELIABLE 会静默收不到数据（不报错！）。`ros2 topic echo` 能收到而节点收不到时，先查 QoS。
-2. **点云含 inf**：无回波点产生 inf，直接喂给 LIO 会破坏 ikd-tree 发散（07 章的 adapter 过滤）。
-3. **点云缺 ring/time 字段**：gz 点云没有线号/时间戳，3D LIO 需要补齐（`lidar3d_adapter.py`）。
+### 案例 3：点云缺 `ring` / `time` 字段
 
-## 练习
+**现象**：Gazebo 产出的点云没有"线号"（`ring`）和"每点时间戳"（`time`）。
 
-1. 启动深度相机机型，用 `ros2 topic hz` 验证深度图与点云频率，与上表对照。
-2. `ros2 topic echo {ns}/pose --once` 找到飞机世界系位置——记住它，后面判分全靠它。
-3. 思考：为什么 IMU 频率(253Hz)远高于相机(23.6Hz)？这对 VIO 意味着什么？（08 章揭晓）
+**后果**：3D LIO 需要按线号和点内时间做运动补偿，缺这两个字段会直接报错或用错数据。
+
+**修复**：`lidar3d_adapter.py` 按线序补齐这两个字段。这是"仿真器给的"和"算法要的"不一致的典型例子。
+
+---
+
+## 你可能卡在这里
+
+| 现象 | 最可能原因 | 先跑这条命令 |
+|---|---|---|
+| 话题列表里没有相机话题 | 机型没换对 | `ros2 topic list \| grep camera` |
+| `ros2 topic hz` 无输出 | 话题名少了命名空间前缀 | `ros2 topic list \| grep image` |
+| 节点收不到但 echo 能收到 | QoS 不匹配（RELIABLE vs BEST_EFFORT） | 见案例 1 |
+| 图像时间戳跳变 | 节点没设 `use_sim_time` | `ros2 param get /<节点> use_sim_time` |
+| 点云让算法崩 | 含 `inf` 或缺 `ring`/`time` | 见案例 2、3 |
+
+---
+
+## 任务卡
+
+### 任务卡 1：换装并验证一台带传感器的机型
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 启动 `gz_x500_depth`，测出深度图与点云的实际频率，与实测表对照 |
+| 2 通信骨架/前置 | 栈已启动；话题在 `/x500_depth_0/depth_camera/` 下 |
+| 3 AI 提示 | **先自己列出要查的话题名**，再问 AI 核对：<br>"我用 `gz_x500_depth` 机型，命名空间应该是 `/x500_depth_0`。我自己推出了这两个话题名（贴出来），帮我看命名规则对不对。**不要给我命令。**" |
+| 4 执行步骤 | ① `run_simulation.sh xtd2 gz_x500_depth` ② `ros2 topic list \| grep depth` ③ 对图像和点云分别 `ros2 topic hz` ④ 与上表对比<br>**验证 AI 的说法**：以 `ros2 topic list` 的真实输出为准，AI 可能编造话题名 |
+| 5 验收标准 | □ 两个话题都测到频率 □ 数值与实测表接近（±20%）□ 能解释为什么深度图比点云快 |
+| 6 原理 + 扩学 | 教**机型—传感器—话题的对应关系**。扩学：换成 `gz_x500_lidar_2d` 再看 `scan` |
+
+### 任务卡 2：内参的实际用途
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 取到内参，用它把像素坐标换算成角度 |
+| 2 通信骨架/前置 | `{ns}/camera/camera_info` 里的 `k` 数组：`[fx, 0, cx, 0, fy, cy, 0, 0, 1]` |
+| 3 AI 提示 | 先自己写出公式，再让 AI 检查：<br>"相机内参 fx=fy=539.94，图像 1280×960。我写的换算公式是（贴公式）。请只指出公式对不对、单位对不对，**不要给我代码**。" |
+| 4 执行步骤 | ① echo 出 `k` ② 记录 fx/fy/cx/cy ③ 自己推导"图像中心偏右 200 像素对应多少度" |
+| 5 验收标准 | □ 能说出 cx/cy 的含义 □ 算出的角度与手算一致 □ 能解释内参错了会怎样 |
+| 6 原理 + 扩学 | 教**内参是视觉测距的地基**。扩学：算图像四个角对应的视场角 |
+
+### 任务卡 3：QoS 静默失败（本章的"刺"）
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 亲手制造并修复"echo 有数据、节点收不到" |
+| 2 通信骨架/前置 | **无 AI 区：本卡禁止使用 AI**。写一个订阅图像的最小节点，先用默认 QoS |
+| 3 AI 提示 | 本卡不使用 AI。卡住可查 [故障实验室](faq.md)、读 `sensor_msgs` 的 QoS 约定、对比 echo 与节点的行为差异 |
+| 4 执行步骤 | ① 写节点订阅 `image_raw`，默认 QoS ② 跑起来，确认收不到且不报错 ③ 改成 `BEST_EFFORT` ④ 确认收到 |
+| 5 验收标准 | □ 能复现"静默收不到" □ 能说出发布端 QoS 是什么 □ 修复后能收到图像 |
+| 6 原理 + 扩学 | 教**QoS 兼容性**。扩学：查 `ros2 topic info -v` 看两端的 QoS 声明 |
+
+## ✅ 检查清单
+
+- [ ] 我能按任务选对机型，并推出它的话题命名空间
+- [ ] 我能用 `ros2 topic hz` 测出传感器频率并与实测表对照
+- [ ] 我能解释 `ros_gz_bridge` 在链路中的位置
+- [ ] 我能说出内参 fx/fy 的物理含义
+- [ ] 我能诊断并修复 QoS 不匹配导致的静默收不到
+- [ ] 我知道点云里的 `inf` 和缺失字段会造成什么后果
+- [ ] 我能关掉 AI，独立复现本章实验，并回答追问
+
+> AI 可以帮你解释 QoS、核对话题名，但**不替你写实现**；任务卡 3 为无 AI 区。
+> 规则见 [AI 使用指南](AI_GUIDE.md)。
+
+## 小结与下一步
+
+你已经有能力给飞机"装眼睛"：换机型、确认话题、验证频率、识别脏数据。
+
+但有了传感器不等于会用它做任务。下一步是把"飞到某处"这件事从硬编码变成**可配置的任务文件**——这是第 4 章的内容。
 
 [上一章](course/02-offboard.md) · [下一章：航点任务与场景画廊 →](course/04-waypoints.md)
