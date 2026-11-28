@@ -20,21 +20,36 @@ class YoloDetector(Node):
         self.declare_parameter('model', '')              # 空=用包内 yolov8n.pt
         self.declare_parameter('infer_every_n', 5)     # 每 N 帧推理一次
         self.declare_parameter('conf', 0.4)
+        # 开放词表类别 (仅 YOLO-World 系列生效), 逗号分隔; 空=用模型自带 80 类 (COCO)
+        # 例: -p classes:="tree, person, car"   (COCO 里没有 tree, 必须用 world 模型)
+        self.declare_parameter('classes', '')
         topic = self.get_parameter('image_topic').value
 
         import os
         from ament_index_python.packages import get_package_share_directory
         model_path = self.get_parameter('model').value or os.path.join(
             get_package_share_directory('drone_sim'), 'models', 'yolov8n.pt')
-        from ultralytics import YOLO
-        self.model = YOLO(model_path)
+        custom = [c.strip() for c in str(self.get_parameter('classes').value or '').split(',')
+                  if c.strip()]
+        if 'world' in os.path.basename(model_path).lower():
+            from ultralytics import YOLOWorld
+            self.model = YOLOWorld(model_path)
+            names = custom or ['person', 'car', 'tree', 'building', 'road']
+            self.model.set_classes(names)          # 开放词表: 用文本定义要检测什么
+            self.get_logger().info(f'YOLO-World 开放词表类别: {names}')
+        else:
+            from ultralytics import YOLO
+            self.model = YOLO(model_path)
+        self.classes = custom
         self.conf = self.get_parameter('conf').value
         self.every_n = self.get_parameter('infer_every_n').value
         self.frame_n = 0
 
         self.pub_annotated = self.create_publisher(Image, '~/annotated', 10)
         self.create_subscription(Image, topic, self.cb, qos_profile_sensor_data)
-        self.get_logger().info(f'YOLO 检测启动: {topic}, 模型 {self.get_parameter("model").value}')
+        self.get_logger().info(
+            f'YOLO 检测启动: {topic}, 模型 {os.path.basename(model_path)}, '
+            f'类别 {"自定义:" + ",".join(self.classes) if self.classes else "COCO80"}')
 
     def cb(self, msg):
         self.frame_n += 1

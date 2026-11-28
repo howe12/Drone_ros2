@@ -57,6 +57,9 @@ PY
 ok=0
 fetch OpenRobotics "Standing%20person" 1 person_standing || ok=1
 fetch GoogleResearch "CITY_TAXI_POLICE_CAR" 1 yolo_car || ok=1
+# 树木: 让画面有自然背景 (COCO 不含 tree 类, 但场景更真实; 配合 YOLO-World 可直接检出)
+fetch OpenRobotics "Oak%20tree" 1 oak_tree || ok=1
+fetch OpenRobotics "Pine%20Tree" 1 pine_tree || ok=1
 
 if [ "$ok" -eq 0 ]; then
   echo

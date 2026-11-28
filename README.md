@@ -303,14 +303,30 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 ![3 机集群](videos/swarm.cross_3uav.gif)
 [▶ 原速 MP4](videos/swarm.cross_3uav.mp4)
 
-**YOLO 目标检测**：⚠️ 仿真场景（baylands）里**没有 COCO 类别的物体**（只有树/草地/道路），
-所以实时画面里检测框为空 —— 这不是节点故障。节点在离线样例图上工作正常：
+**YOLO 目标检测**（无人机飞行中实时检测；专用世界 `yolo_targets`：3 车 + 3 行人）
+![YOLO 目标检测](videos/vision.yolo_detect.gif)
+[▶ 原速 MP4](videos/vision.yolo_detect.mp4)
 
-![YOLO 检测样例](screenshots/18_e8_yolo_test.jpg)
+> 录制约束：脚本会等飞机 `armed && 高度>2m` 才开始录，否则**拒绝录制**。
+> 早先一版没加这个判断，录到的是**地面静止画面**（首尾帧完全相同）——看起来像检测成功，
+> 实际飞机根本没起飞。这类"假成功"必须靠硬性前置条件拦住。
 
-> 检出：`bus 0.87`、`person 0.87/0.83/0.89`、`stop sign 0.26`。
-> 若要在仿真里看到检测框，需要往世界里加入 COCO 类目标（人/车等），
-> 属于场景扩展工作（见 `docs/SCENARIOS.md` 的"参考仓库"）。
+**已知问题**（真实存在，未掩盖）：
+
+| 现象 | 原因 |
+|---|---|
+| 螺旋桨被误检为 `airplane 0.5~0.8` | 桨叶入镜且高速旋转，形似机翼；可用类别过滤或调整相机安装规避 |
+| 树木检不出 / 被误检为 `airplane` | 这套仿真资产的树是**纯黑剪影**（材质未生效），CLIP 匹配不到 `tree`；需修资产材质或换带贴图的树 |
+
+**开放词表（YOLO-World）支持**：节点可用任意文本类别，不局限 COCO 80 类
+
+```bash
+bash scripts/run_yolo.sh /x500_mono_cam_0/camera/image_raw \
+     yolov8s-worldv2.pt "tree, person, car"
+```
+
+实测在有人/车的画面上检出 `person 0.90 / 0.87`（高于 COCO 的 0.81）；
+依赖 CLIP（`pip install git+https://github.com/ultralytics/CLIP.git`）+ 338MB 权重。
 
 ### 运行截图
 

@@ -1,0 +1,8 @@
+# YOLO 检测专用航线: 从 -4m 沿 +x 缓慢直线飞行, 依次经过
+# 行人(x=5) -> 车(x=8) -> 车(x=14), 保证目标全程在正前方视野内
+# 用法: ros2 launch drone_sim waypoint_mission.launch.py prefix:=/x500_mono_cam_0 \
+#         mission_file:=$(ros2 pkg prefix drone_sim)/share/drone_sim/config/mission_yolo_pass.yaml
+waypoints:
+  - {x: -4.0, y: 0.0, z: -3.5, hold: 0.5}
+  - {x: 16.0, y: 0.0, z: -3.5, hold: 0.0}
+speed: 1.2
