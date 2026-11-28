@@ -307,6 +307,10 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 ![YOLO 目标检测](videos/vision.yolo_detect.gif)
 [▶ 原速 MP4](videos/vision.yolo_detect.mp4)
 
+> 本版改进：高度 2.5m、悬停在目标前方约 6m 处 14s、再以 0.7 m/s 慢速通过；
+> 检测只保留 `person/car` 两类（YOLO-World），**因此不再出现 airplane 误检**。
+> 实测 40s 内检出 **person 48 次**（置信度 0.57~0.89）。
+>
 > 录制约束：脚本会等飞机 `armed && 高度>2m` 才开始录，否则**拒绝录制**。
 > 早先一版没加这个判断，录到的是**地面静止画面**（首尾帧完全相同）——看起来像检测成功，
 > 实际飞机根本没起飞。这类"假成功"必须靠硬性前置条件拦住。

@@ -61,7 +61,7 @@ echo "== 起飞并沿 +x 直线掠过目标 (3.5m)"
 # 用专门航线: 从 -4m 飞到 +16m, 依次经过 行人(x=5) 与 车(x=8/14),
 # 目标全程在正前方 -> 不会像绕圈那样只在部分时段入镜
 timeout 150 ros2 launch drone_sim waypoint_mission.launch.py \
-    prefix:="$NS" mission:=yolo_pass speed:=1.2 \
+    prefix:="$NS" mission:=yolo_hover speed:=0.8 \
     > logs/grade/yolo_flight.log 2>&1 &
 FLIGHT=$!
 
