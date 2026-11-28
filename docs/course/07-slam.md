@@ -765,7 +765,7 @@ Odometry 消息  →  带协方差, 给 slam_toolbox 用
 
 ---
 
-## 附录：本章参数与话题速查
+## 附录 A：本章参数与话题速查
 
 ### 2D 建图
 
@@ -794,3 +794,127 @@ Odometry 消息  →  带协方差, 给 slam_toolbox 用
 | 0011 | `/clock` + 带协方差里程计桥接 |
 | 0012 | slam_toolbox 参数与 TF |
 | 0008 / 0015 | 16 线激光模型、机架 4014 |
+
+---
+
+## 附录 B：`slam_toolbox_2d.yaml` 全参数表
+
+第 2.9 节讲了九个关键项。这里给出**完整的 45 项**，按功能分组——排查时按组对照比逐个猜有效。
+
+### 坐标系与话题（6 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `odom_frame` | `odom` | 里程计系 |
+| `map_frame` | `map` | 地图系 |
+| `base_frame` | `base_link` | 机体系 |
+| `scan_topic` | `/x500_lidar_2d_0/scan` | **写死命名空间** |
+| `mode` | `mapping` | 建图模式（另一选项 `localization`） |
+| `debug_logging` | false | 调试日志 |
+
+### 地图输出（5 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `resolution` | **0.05** | 栅格分辨率（5cm/格） |
+| `map_update_interval` | **2.0** | 地图发布间隔（秒） |
+| `transform_publish_period` | 0.02 | TF 发布周期（50Hz） |
+| `max_laser_range` | **25.0** | 建图用的最大量程（传感器 30m） |
+| `minimum_time_interval` | 0.2 | 处理两帧扫描的最小间隔 |
+
+### 扫描处理（5 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `throttle_scans` | 1 | 每 N 帧处理 1 帧（1 = 全处理） |
+| `use_scan_matching` | true | 启用扫描匹配 |
+| `use_scan_barycenter` | true | 用扫描重心做初始对齐 |
+| `minimum_travel_distance` | 0.3 | 移动超过此距离才新增关键帧 |
+| `minimum_travel_heading` | 0.3 | 转向超过此角度才新增关键帧 |
+
+**`minimum_travel_distance = 0.3` 很重要**：不是每帧扫描都建关键帧，**要走 30cm 或转 0.3 弧度才建一个**。这是控制计算量的关键。
+
+### 扫描缓存（2 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `scan_buffer_size` | 10 | 缓存多少帧扫描 |
+| `scan_buffer_maximum_scan_distance` | 10.0 | 缓存扫描的最大距离 |
+
+### 回环检测（6 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `do_loop_closing` | **true** | 启用回环 |
+| `loop_search_maximum_distance` | 3.0 | 回环搜索半径（m） |
+| `loop_match_minimum_chain_size` | 10 | 链的最小长度 |
+| `loop_match_maximum_variance_coarse` | 3.0 | 粗匹配最大方差 |
+| `loop_match_minimum_response_coarse` | 0.35 | 粗匹配最小响应 |
+| `loop_match_minimum_response_fine` | 0.45 | 精匹配最小响应 |
+
+**回环的响应阈值是成对的**（粗 0.35 / 精 0.45）：**先粗筛再精配**，两层都要过。
+
+### 相关搜索（4 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `correlation_search_space_dimension` | 0.5 | 搜索空间尺寸（m） |
+| `correlation_search_space_resolution` | 0.01 | 搜索分辨率（m） |
+| `correlation_search_space_smear_deviation` | 0.1 | 模糊偏差 |
+| `use_response_expansion` | true | 响应扩展 |
+
+**这是什么**：`slam_toolbox` 在配准时不是解方程，而是**在候选位姿附近做"相关扫描"（暴力搜索）**，找响应最大的位姿。上面两组参数就是搜索范围与精细度。
+
+### 回环搜索空间（3 项）
+
+| 参数 | 值 |
+|---|---|
+| `loop_search_space_dimension` | 8.0 |
+| `loop_search_space_resolution` | 0.05 |
+| `loop_search_space_smear_deviation` | 0.03 |
+
+### 匹配惩罚（6 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `link_match_minimum_response_fine` | 0.1 | 精细匹配最小响应 |
+| `link_scan_maximum_distance` | 1.5 | 连接扫描的最大距离 |
+| `distance_variance_penalty` | 0.5 | 距离方差惩罚 |
+| `angle_variance_penalty` | 1.0 | 角度方差惩罚 |
+| `minimum_angle_penalty` | 0.9 | 最小角度惩罚 |
+| `minimum_distance_penalty` | 0.5 | 最小距离惩罚 |
+
+**惩罚项的作用**：在多个候选位姿响应相近时，**惩罚"移动太多"或"转太多"的候选**——倾向于"变化小"的解。这是**正则化**思想。
+
+### 角度搜索（3 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `fine_search_angle_offset` | 0.00349 | 精搜索角度偏移（0.2°） |
+| `coarse_search_angle_offset` | 0.349 | 粗搜索角度偏移（20°） |
+| `coarse_angle_resolution` | 0.0349 | 粗搜索角度分辨率（2°） |
+
+**单位都是弧度**。0.349 rad ≈ 20°，说明粗搜索要转 ±20° 找。
+
+### 其他（4 项）
+
+| 参数 | 值 | 说明 |
+|---|---|---|
+| `transform_timeout` | 0.5 | 等 TF 的超时（秒） |
+| `tf_buffer_duration` | 30.0 | TF 缓存时长（秒） |
+| `stack_size_to_use` | 40000000 | 栈大小（40MB） |
+| `enable_interactive_mode` | true | 交互模式（RViz 里手动改地图） |
+
+### 三组"必须对"的参数
+
+排查时优先看这三组：
+
+| 组 | 关键项 | 错了会怎样 |
+|---|---|---|
+| **坐标系** | `odom_frame` / `map_frame` / `base_frame` | TF 查不到，静默不建图 |
+| **话题** | `scan_topic` | 收不到数据，静默不建图 |
+| **时间** | `transform_timeout` / `tf_buffer_duration` | 卡顿后恢复失败 |
+
+**前两组是"名字对不上"，第三组是"时间对不上"**——本章 2.3 节那四个"静默失败"条件，全在这三组里。
+
+---
