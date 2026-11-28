@@ -254,6 +254,53 @@ prompt: |
 
 环境按锁定版本复现：PX4 v1.15.4、`px4_msgs` release/1.15、XTDrone2 锁定 commit，叠加 18 个补丁固化已踩过的坑（GStreamer 冲突、Qt5 缺失、QoS 死锁、多机工作目录冲突等）。实现见 `scripts/setup_workspace.sh` 与 `patches/`。
 
+### 2.6 `ros_gz` 为什么要源码编译
+
+ROS2 Humble 官方源里的 `ros_gz`（ROS 与 Gazebo 的桥接）默认按 **Gazebo Fortress** 编译。但这套环境用的是 **Gazebo Harmonic**（8.15.0）。
+
+两者 ABI 不兼容：用 Fortress 版桥接去连 Harmonic，会报符号找不到或直接崩溃。
+
+**所以必须源码编译**，并显式指定版本：
+
+```bash
+export GZ_VERSION=harmonic
+colcon build --packages-up-to ros_gz_bridge ros_gz_sim
+```
+
+**为什么这事容易踩**：`apt install ros-humble-ros-gz-bridge` 也能装上、也能启动，**但连不上正确版本**。错误信息往往很含糊（"failed to load transport plugin"），很容易误判成环境损坏。
+
+**验证方法**：
+
+```bash
+gz sim --versions          # 应显示 8.x（Harmonic）
+ros2 pkg prefix ros_gz_bridge
+```
+
+### 2.7 两套平台：classic 与 xtd2
+
+`run_simulation.sh` 有个位置参数 `platform`，可选 `classic` 或 `xtd2`：
+
+| 平台 | 仿真器 | 机型命名 | 典型用途 |
+|---|---|---|---|
+| `classic` | Gazebo Classic 11 | `iris`、`typhoon_h480` | 兼容旧模型、旧世界 |
+| `xtd2` | Gazebo Harmonic 8 | `gz_x500` 系列 | **课程主用**（传感器更全） |
+
+**为什么保留两套**：
+
+- `classic` 生态里有大量历史模型与世界（如 `warehouse`）；
+- `xtd2`（XTDrone2）提供更完整的传感器与机架（相机/激光/深度/VTOL）。
+
+**两套共用同一份 PX4 编译产物**——因为 SITL 只关心"传感器数据从哪来"，不关心渲染器是谁。
+
+**切换方式**：
+
+```bash
+bash scripts/run_simulation.sh classic iris warehouse      # Classic 平台
+bash scripts/run_simulation.sh xtd2 gz_x500_depth indoor1   # Harmonic 平台
+```
+
+**注意命名空间**：`classic` 用 `/iris_0`，`xtd2` 用 `/x500_0`。脚本里的节点都接受 `px4_ns` / `camera_ns` 参数，就是为了兼容两套。
+
 ---
 
 ## 3. 扩展：案例与排障
@@ -347,6 +394,38 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 
 第 N 架实例号是 N，第二架 `/x500_1` 的 `target_system` 必须为 2。本章先用单机熟悉 `/x500_0`；第 12 章命名空间写错会直接导致"2 号机不解锁"。
 
+### 案例 5：桥接报 `failed to load transport plugin`
+
+**现象**：仿真起来了，但 ROS2 侧一条 `/fmu/` 话题都没有；桥接节点日志含糊地报插件加载失败。
+
+**原因**：`ros_gz` 版本与 Gazebo 版本不匹配（2.6 节）——多半是装了 apt 的 Fortress 版。
+
+**诊断**：
+
+```bash
+gz sim --versions                        # 确认是 8.x
+ros2 pkg prefix ros_gz_bridge            # 看是 apt 包还是工作空间
+```
+
+如果 `ros2 pkg prefix` 指向 `/opt/ros/humble`，说明用的是 apt 版本。
+
+**修复**：卸载 apt 版 `ros-humble-ros-gz*`，用 `GZ_VERSION=harmonic` 源码编译。
+
+### 案例 6：`gz sim` 起不来，报与显示相关
+
+**现象**：命令行启动，Gazebo 窗口不出现；日志提到 `DISPLAY`、`X11` 或 `EGL`。
+
+**原因**：无图形环境下启动 GUI，或 `DISPLAY` 未设置。
+
+**诊断与处理**：
+
+```bash
+echo $DISPLAY          # 应为 :0 之类
+gz sim -s -r world.sdf # 只跑服务端（无界面），用于无头验证
+```
+
+**为什么值得提**：本仓库的判分脚本需要 GUI（`DISPLAY=:0`），但**服务端能跑不代表 GUI 能跑**——这两个问题要分开排查。
+
 ---
 
 ## 你可能卡在这里
@@ -387,7 +466,18 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 | 5 验收标准 | □ 到达 8m（遥测 z≈-8）□ 画圆半径≈5m □ `grade.py` 仍 PASS |
 | 6 原理 + 扩学 | 教**参数化优于改代码**。扩学：加一个 `yaw_rate` 参数让飞机边飞边转 |
 
-### 任务卡 3：故障注入（本章的"刺"）
+### 任务卡 3：验证桥接版本与双平台切换
+
+| 段 | 内容 |
+|---|---|
+| 1 要实现的功能 | 确认所用 `ros_gz` 与 Gazebo 版本匹配，并跑通两套平台各一次 |
+| 2 通信骨架/前置 | `gz sim --versions`、`ros2 pkg prefix`、`run_simulation.sh` 的 platform 参数 |
+| 3 AI 提示 | 先自己查，再问：<br>"我的 `ros2 pkg prefix ros_gz_bridge` 指向 /opt/ros/humble（贴输出）。请只判断：这是 apt 版还是源码编译版，以及它和 Gazebo 8 是否匹配。**只判断，不要修复步骤。**" |
+| 4 执行步骤 | ① 查 Gazebo 版本 ② 查桥接来源 ③ 跑一次 `classic` ④ 跑一次 `xtd2` ⑤ 记录两者命名空间差异 |
+| 5 验收标准 | □ 两者版本匹配 □ 两套平台都能出话题 □ 能说出 `/iris_0` 与 `/x500_0` 的差别 |
+| 6 原理 + 扩学 | 教**版本匹配与平台抽象**。扩学：为什么两套平台能共用一份 PX4 编译产物？ |
+
+### 任务卡 4：故障注入（本章的"刺"）
 
 | 段 | 内容 |
 |---|---|
@@ -408,7 +498,7 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 - [ ] 我能说出 Gazebo / PX4 SITL / ROS2 节点三者的分工
 - [ ] 我能关掉 AI，独立复现本章实验，并回答追问
 
-> AI 可以帮你理解报错、解释概念、指出代码问题，但**不替你写实现**；任务卡 3 起为无 AI 区。
+> AI 可以帮你理解报错、解释概念、指出代码问题，但**不替你写实现**；任务卡 4 为无 AI 区。
 > 规则见 [AI 使用指南](AI_GUIDE.md)；本课程锁版本，AI 的通用答案要用命令验证。
 
 ## 小结与下一步
