@@ -869,3 +869,108 @@ def cb(self, msg):
 |---|---|---|
 | `yolov8n.pt` | 6.5 MB | COCO 80 类，快 |
 | `yolov8s-worldv2.pt` | 25.9 MB | 开放词表，可用文本指定类别，慢 |
+
+---
+
+## 附录 C：检测结果统计脚本
+
+第 1.2 节的日志里有大量 `person: 0.87` 这样的行。**肉眼看不出来"整体表现如何"**，用脚本统计。
+
+### 脚本
+
+```python
+#!/usr/bin/env python3
+# 统计 yolo_detector 日志里的检测结果
+import re, sys
+from collections import Counter, defaultdict
+
+# 匹配形如 "person: 0.87" 或 "bus 0.91"
+PAT = re.compile(r'([a-zA-Z_ ]+?)\s*[:：]\s*(0\.\d+)')
+
+def analyze(path):
+    per_class = defaultdict(list)     # 类别 -> [置信度...]
+    frames = 0
+    empty = 0
+
+    with open(path, errors='ignore') as f:
+        for line in f:
+            if '检测' not in line:
+                continue
+            frames += 1
+            hits = PAT.findall(line)
+            if not hits:
+                empty += 1
+            for name, conf in hits:
+                per_class[name.strip()].append(float(conf))
+
+    print(f"== {path}")
+    print(f"   含检测的行: {frames}，其中无目标: {empty}")
+    print(f"   {'类别':<12}{'次数':>6}{'平均置信':>10}{'最低':>8}{'最高':>8}")
+    for name, confs in sorted(per_class.items(), key=lambda kv: -len(kv[1])):
+        print(f"   {name:<12}{len(confs):>6}{sum(confs)/len(confs):>10.3f}"
+              f"{min(confs):>8.2f}{max(confs):>8.2f}")
+
+    total = sum(len(v) for v in per_class.values())
+    print(f"   总检测数: {total}，平均每帧 {total/max(frames,1):.2f} 个")
+
+if __name__ == '__main__':
+    analyze(sys.argv[1] if len(sys.argv) > 1 else 'logs/e8_yolo.log')
+```
+
+### 用法
+
+```bash
+python3 tools/yolo_stats.py logs/e8_yolo.log
+```
+
+### 输出示例
+
+```text
+== logs/e8_yolo.log
+   含检测的行: 240，其中无目标: 62
+   类别          次数   平均置信     最低     最高
+   person          87     0.81     0.42   0.96
+   car             35     0.73     0.45   0.91
+   bus              3     0.87     0.84   0.90
+   总检测数: 125，平均每帧 0.52 个
+```
+
+### 四个数字怎么读
+
+| 数字 | 含义 | 异常信号 |
+|---|---|---|
+| **无目标行占比** | 62/240 ≈ 26% | 太高 → 阈值太高或场景没目标 |
+| **平均置信度** | person 0.81 | 太低 → 模型不适合这个场景 |
+| **最低置信度** | 0.42（接近阈值 0.4） | 说明很多框是"擦边"检出的 |
+| **每帧检测数** | 0.52 | 忽多忽少 → 不稳定 |
+
+**"最低置信度贴着阈值"这条特别有用**：如果最低值是 0.42 而阈值是 0.40，说明**大量检测处在边界**——稍微改一下阈值，数量会剧烈变化。
+
+### 它能发现什么问题
+
+| 现象 | 从数据看出 |
+|---|---|
+| 阈值设太高 | 无目标行占 80%+ |
+| 阈值设太低 | 检测数暴增且平均置信度低 |
+| 模型不匹配 | 平均置信度 < 0.5 |
+| 场景里没有目标 | 全程无检测（不是 bug） |
+| 帧率不稳 | 每帧检测数波动大 |
+
+### 为什么值得做
+
+**"看着能检出几个"和"统计上稳不稳定"是两件事。**
+
+第 13 章那个"飞走的飞机让间距变好看"的教训在这里同样适用：**肉眼看几个成功案例，会高估系统能力**。
+
+> **定量统计的价值**：它会把"我觉得还行"变成"26% 的帧什么都没检出"。
+
+### 一个进阶做法
+
+如果有标注数据（知道每帧真实有几个目标），可以算精确率与召回率（2.3 节）：
+
+```python
+precision = 正确检出 / 总检出
+recall    = 正确检出 / 真实目标数
+```
+
+**本课程没有标注数据**，所以只能算上面那些"无标注指标"。**要算 P/R，得先自己标几十帧**——这也是个不错的练习。
