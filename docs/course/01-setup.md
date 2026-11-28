@@ -634,6 +634,52 @@ ls -l ros2_ws/install/drone_sim/lib/python3.*/site-packages/drone_sim/<你的文
 > AI 可以帮你理解报错、解释概念、指出代码问题，但**不替你写实现**；任务卡 4 为无 AI 区。
 > 规则见 [AI 使用指南](AI_GUIDE.md)；本课程锁版本，AI 的通用答案要用命令验证。
 
+## 分层练习
+
+**基础**
+
+1. `source` 顺序为什么不能反？表现是什么？
+   > 要点：工作区被系统 ROS2 覆盖，包"消失"，报 `Package not found`。
+
+2. `--symlink-install` 对哪类文件生效？
+   > 要点：只对 Python/脚本类；C++ 仍需重编。
+
+3. `run_simulation.sh` 的三个位置参数分别是什么？
+   > 要点：platform、model、world。
+
+**进阶**
+
+4. 把 `gz sim --versions` 与 `ros2 pkg prefix ros_gz_bridge` 的输出贴在一起，判断版本是否匹配。
+
+5. 用 `classic` 平台跑一次 `iris`，记录命名空间与 `xtd2` 的差别。
+
+6. 找出 19 个补丁中与"时间"相关的所有补丁，说明它们为什么必须存在。
+
+**挑战**
+
+7. 写一个脚本，自动检查本章的四个验证点（Gazebo 版本、桥接来源、包可见、launch 能起）。
+
+8. 如果要在另一台机器上复现这套环境，最少需要记录哪些信息？
+
+---
+
+## 自查 12 问
+
+1. `run_simulation.sh` 的一次启动做了哪三件事？
+2. 为什么需要 MicroXRCEAgent？
+3. `Ready for takeoff!` 意味着什么？
+4. 话题命名空间的推导规则是什么？
+5. 为什么 `ros_gz` 要源码编译？
+6. `GZ_VERSION=harmonic` 解决什么问题？
+7. classic 与 xtd2 的两套命名空间差别？
+8. 19 个补丁分成哪五类？
+9. 为什么用补丁而不是改上游？
+10. `install/setup.bash` 设置了哪些环境变量？
+11. `source` 顺序错了会怎样？
+12. `--symlink-install` 的收益与局限？
+
+---
+
 ## 小结与下一步
 
 本章完成了环境复现和一次自动起降，并用判分拿到可核验的指标：高度误差 0.3m、耗时 18.6s、3/3 PASS。
