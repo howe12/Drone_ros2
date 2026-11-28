@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
-# Gitee Pages 部署助手
+# ⚠️ 已废弃（2025）：Gitee Pages 已停止服务
+#    - 「服务」菜单无入口，/pages 返回 404
+#    - 参考: https://gitee.com/oschina/git-osc/issues/ID1EVM
+#    - 课程站点改用 Cloudflare Pages 等方案，见 docs/GITEE_SYNC.md 第 7 节
+#    本脚本仅作历史记录保留，请勿使用。
+# ============================================================
+# Gitee Pages 部署助手（历史版本）
 # 用法:
 #   bash scripts/deploy_gitee_pages.sh --check   # 检查仓库就绪 + 探测站点是否已上线
 #   bash scripts/deploy_gitee_pages.sh           # 打印开通步骤并打开 Gitee Pages 设置页
