@@ -250,5 +250,5 @@ default（空场）
 
 ---
 
-**相关文档**：[场景画廊 SCENARIOS](SCENARIOS.md) · [平台契约 PLATFORM_API](PLATFORM_API.md) ·
+**相关文档**：[截图与录屏 RECORDING](RECORDING.md) · [场景画廊 SCENARIOS](SCENARIOS.md) · [平台契约 PLATFORM_API](PLATFORM_API.md) ·
 [运维手册 OPERATIONS](OPERATIONS.md) · [平台路线 ROADMAP](ROADMAP.md)

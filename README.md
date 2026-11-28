@@ -209,6 +209,8 @@ bash scripts/run_simulation.sh classic [机型] [世界] # Gazebo Classic（本�
 - 注意：ROS1 版 XTDrone 的算法不能直接混入本 Humble 工作区，需要时按包单独移植
 - **怎么找/选/造场景**：见 [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)
   （四个来源、8 步 SOP、按实验类型查表、学生造环境作业的验收标准）
+- **截图与录屏怎么做**：见 [docs/RECORDING.md](docs/RECORDING.md)
+  （只抓到 Gazebo 窗口、等升空再开录、GIF 压缩、空白画面判别）
 
 ### 集成时踩过的坑（已全部固化为补丁）
 
