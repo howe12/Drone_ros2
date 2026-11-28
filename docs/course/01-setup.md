@@ -390,6 +390,37 @@ ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0
 | ③ | 能看到包与节点 |
 | ④ | 日志出现 `Ready for takeoff!` |
 
+**第 ③ 步应该看到什么**（本仓库实测 `ros2 pkg executables drone_sim`）：
+
+```text
+drone_sim aruco_precision_landing     drone_sim odom_to_tf
+drone_sim bt_mission                  drone_sim offboard_demo
+drone_sim ego_bridge                  drone_sim planner_reactive
+drone_sim formation_follower          drone_sim safety_supervisor
+drone_sim lidar3d_adapter             drone_sim swarm_agent
+drone_sim vio_evaluator               drone_sim vtol_demo
+drone_sim waypoint_mission            drone_sim yolo_detector
+```
+
+**共 14 个节点**，对应全书各章：
+
+| 节点 | 用于 |
+|---|---|
+| `offboard_demo` | 第 1–2 章首飞 |
+| `waypoint_mission` | 第 4 章航点 |
+| `yolo_detector` | 第 5 章检测 |
+| `aruco_precision_landing` | 第 6 章降落 |
+| `lidar3d_adapter`、`odom_to_tf` | 第 7 章 SLAM |
+| `vio_evaluator` | 第 8 章评测 |
+| `planner_reactive`、`ego_bridge` | 第 9 章避障 |
+| `bt_mission` | 第 10 章行为树 |
+| `safety_supervisor` | 第 11 章安全 |
+| `formation_follower` | 第 12 章编队 |
+| `swarm_agent` | 第 13 章集群 |
+| `vtol_demo` | 第 14 章 VTOL |
+
+**少一个就说明编译不全**——按上表能立刻定位是哪个功能缺。
+
 **任何一步失败，不要往下走**——后面所有奇怪现象都可能是前一步的残留。
 
 ---
