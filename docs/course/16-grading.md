@@ -63,6 +63,21 @@ python3 tools/grade.py --list
 
 输出的是场景 id 列表，比如 `ctrl.takeoff_hover_land`、`ctrl.waypoint_square`、`vision.yolo_detect`……
 
+**实测输出**（本仓库当前状态）：
+
+```text
+场景 (★ = 已有探针, 可自动判定):
+  ★ ctrl.takeoff_hover_land            L0   起飞-悬停-降落  [verified]
+  ★ ctrl.waypoint_square               L1   正方形航点任务 + RViz 可视化  [verified]
+  ★ vision.yolo_detect                 L2   YOLO 目标检测（仿真内含人/车目标）  [verified]
+  ...
+  ★ vio.vins_mono                      L4   VINS-Fusion 单目视觉惯性里程计  [unverified]
+```
+
+**12 个场景，11 个 `verified`，1 个 `unverified`**——就是第 8 章那个 VIO。
+
+**`★` 的含义**：该场景有对应的探针函数（第 6 节会读到）。没有 `★` 的场景只能人工判。
+
 **场景 id 是课程的"实验编号"**：每章的判分命令都用它，你不用记命令细节。
 
 ### 1.2 快速自测（`--runs 1`）
