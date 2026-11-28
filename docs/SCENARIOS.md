@@ -40,6 +40,43 @@ XTDrone2 的模型目录 (`third_party/XTDrone2/xtd2_gz_sim/models/`) 共 34 个
 **PX4 机架注册**（`ROMFS/.../init.d-posix/airframes/`）：14 个 `gz_*` 机架，
 其中 `4012_gz_x500_lidar_2d`、`4013_gz_x500_mono_cam_down`、`4014_gz_x500_lidar_3d` 为本项目新增（补丁 0008/0013/0015）。
 
+## 上游自带的仿真世界（XTDrone2）
+
+XTDrone2 仓库（`third_party/XTDrone2/xtd2_gz_sim/worlds/`）自带 **8 个世界**。
+下表逐一说明内容与"是否需要联网/外部资产"——这一列很关键，直接决定能不能离线跑：
+
+| 世界 | 内容 | 自包含? | 说明 |
+|---|---|---|---|
+| `default` | 空场：地面 + 光照（1 个内联模型）| ✅ 全本地 | 控制调试首选 |
+| `aruco` | 地面 + `model://arucotag` 靶标 | ✅ 本地模型 | 视觉降落（靶标贴图我们已换成 DICT_4X4_50 ID42）|
+| `walls` | 5 个内联箱体组成的墙体 | ✅ 全本地 | 避障 / 2D 激光 SLAM |
+| `lawn` | 草地地面（与 PX4 上游逐字节相同）| ✅ 全本地 | 通用飞行 |
+| `windy` | 地面 + `<wind><linear_velocity>10 10 10</linear_velocity>`，且 `<enable_wind>true` | ✅ 全本地 | **真实的 10 m/s 三轴风扰**，适合做鲁棒性实验 |
+| `rover` | 地面（配 `gz_r1_rover` 机型）| ✅ 全本地 | 地面车对照实验 |
+| `baylands` | **运行时从 Gazebo Fuel 下载** `OpenRobotics/baylands`（约 393 MB）+ `Coast Water` | ❌ **需联网** | 大场景/视觉；首次启动要下模型 |
+| `indoor1` | 25 个内联模型 + 引用 Gazebo **Classic** 资产（cafe / coke_can / grey_tote…）| ❌ 缺资产，gz 崩溃 | 室内场景，**当前不可用** |
+
+> `baylands` 的坑：它的模型缓存到 `~/.gz/fuel/` 后，`model.sdf` 里的网格与贴图仍是
+> **https 绝对地址**，所以每次加载都要联网；网络受限时贴图取不到，模型会渲染成**纯黑剪影**
+> （本项目里"树是黑的"就是这个原因，不是我们的材质写错了）。
+> 可执行 `bash scripts/fix_fuel_offline.sh` 把 URI 改写为本地相对路径，之后即可离线加载。
+> 注：树即使改成本地路径仍可能是黑的——那是 DAE 内部材质问题，与 URI 无关。
+
+### 我们新增的世界
+
+| 世界 | 内容 | 补丁 |
+|---|---|---|
+| `e7_obstacles` | 两处小方块障碍群，用于局部规划避障 | 0016 |
+| `yolo_targets` | 3 辆车 + 3 个行人（Gazebo Fuel 模型），用于目标检测 | 0019 |
+
+### XTDrone（ROS1 原版）有多少世界？
+
+本仓库用的是 **XTDrone2**（ROS2 + Gazebo Ignition）。其前身 **XTDrone（ROS1）** 按官方 README
+明确写有 **"两个户外场景 + 三个室内场景"**（见
+[XTDrone README](https://raw.giteeusercontent.com/Doer/XTDrone/raw/master/README.md) "仿真配置 → Gazebo世界"）。
+ROS1 版的世界是 SDF 文件，理论上可移植到 Harmonic，但需要逐个验证资产兼容性——这正是 `indoor1`
+踩过的坑（它引用的就是 Classic 时代资产）。
+
 ## Gazebo Classic 平台
 
 > ⚠️ **当前不可用**: gazebo 包于 2026-11-26 被外部清理/安装移除 (仅存 libgazebo11)。
