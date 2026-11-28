@@ -840,3 +840,125 @@ N 次通过率    → 让"成功"可复现
 **建议顺序**：按 L0→L6 走一遍。**每一级的失败模式都不同**，跳级会漏掉基础问题。
 
 ---
+
+---
+
+## 附录 C：自己写一个探针
+
+新增场景时，除了在 `scenarios.yaml` 里写 `metrics`，还要写一个**探针函数**告诉判分"怎么算这个数"。
+
+### 三步
+
+**第一步：在 `tools/grade.py` 里注册**
+
+```python
+@probe('ctrl.my_new_scenario')
+def probe_my_scenario(ctx):
+    ...
+```
+
+装饰器的参数**必须与 `scenarios.yaml` 的 `id` 完全一致**——不一致就找不到探针，判分会退回"人工判定"。
+
+**第二步：从 `ctx` 取数据**
+
+`ctx` 提供四类数据访问器：
+
+| 方法 | 返回什么 |
+|---|---|
+| `ctx.poses(ns)` | 世界系位姿序列 `[(t, x, y, z), ...]` |
+| `ctx.arms(ns)` | 解锁状态序列 `[(t, arming_state), ...]` |
+| `ctx.vel(ns)` | 速度序列 `[(t, vx, vy, vz), ...]` |
+| `ctx.logtext()` | 节点日志全文 |
+
+**注意：这些方法**已经**过滤掉 `t_start` 之前的数据**（第 6.2 节），所以你可以直接用。
+
+`ns` 参数省略时会取"第一个有数据的命名空间"——单机场景不用传。
+
+**第三步：返回指标字典**
+
+```python
+return {'我的指标': 0.37}
+```
+
+**键名必须与 `scenarios.yaml` 里 `metrics[].name` 一致**，否则判分拿不到值。
+
+### 一个完整例子
+
+假设新场景 `ctrl.climb_and_return`：起飞到 3m，悬停 5s，回原点降落。指标是"最大高度偏差"与"回到原点的距离"。
+
+```python
+@probe('ctrl.climb_and_return')
+def probe_climb_return(ctx, target_alt=3.0):
+    ps = ctx.poses()
+    if not ps:
+        # 没有数据时必须显式失败（第 6.5 节）
+        return {'高度偏差': 99.0, '回原点距离': 99.0, '结束状态': 0}
+
+    # 高度：NED 里 z 是负的，gz 的 /pose 是 ENU（z 向上正）
+    max_alt = max(z for (_, _, _, z) in ps)
+    alt_err = abs(max_alt - target_alt)
+
+    # 最后一个采样点的水平距离（ENU 的 x/y）
+    _, x, y, z = ps[-1]
+    back_dist = (x * x + y * y) ** 0.5
+
+    return {
+        '高度偏差': round(alt_err, 3),
+        '回原点距离': round(back_dist, 3),
+        '结束状态': ctx.disarmed_at_end(),
+    }
+```
+
+**四个细节值得注意**：
+
+| 细节 | 为什么 |
+|---|---|
+| 无数据时返回 99.0 | 显式失败，不能变成"假通过" |
+| 用 `max(z)` 而不是 `ps[-1][3]` | 要的是"最高到过多少" |
+| 用 `ps[-1]` 算回原点距离 | 落点是"结束时在哪"（不是最小值） |
+| `ctx.disarmed_at_end()` | 现成方法，不用自己翻 arms |
+
+### 坐标系陷阱
+
+**`ctx.poses()` 给的是 gz 世界系（ENU，z 向上为正）**，不是 PX4 的 NED。
+
+**这是最容易搞错的地方**：正文一直在讲 NED（z 向下），但判分数据是 ENU（z 向上）。
+
+| 量 | 判分里的方向 |
+|---|---|
+| 高度 | z **向上为正** |
+| 前后 | y 是北 |
+| 左右 | x 是东 |
+
+**所以"离地 3 米"在 `ctx.poses()` 里是 `z = +3.0`**，而在 PX4 里是 `z = -3.0`。
+
+### 怎么调试探针
+
+**别整个流程跑**——先单独测探针：
+
+```python
+# 临时脚本，直接从已有的采样结果算
+python3 -c "
+from tools.grade import probe_my_scenario
+# 需要构造一个 ctx……
+"
+```
+
+**更实际的做法**：先跑一次判分，把 JSON 报告打开，看指标值是否合理。
+
+```bash
+python3 tools/grade.py --scenario ctrl.my_new_scenario --runs 1 --json /tmp/out.json
+cat /tmp/out.json | python3 -m json.tool | head -30
+```
+
+**如果指标是 99.0**：说明没采到数据（话题名错、或场景命令没跑起来）。
+
+**如果指标是 0**：可能是真的 0，也可能是"没算出来"——**回去看探针里的默认返回值**。
+
+### 一条纪律
+
+> **探针只负责"算数"，不负责"判定"。**
+
+阈值写在 `scenarios.yaml` 里。**探针里不要出现 `if value > 0.5: return PASS`**——那是把判定逻辑藏进代码，改阈值就要改代码，违背了"配置与代码分离"。
+
+**检查方法**：如果你的探针里有 `threshold`、`PASS`、`FAIL` 这类词，就是越界了。
