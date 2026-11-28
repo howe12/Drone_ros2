@@ -145,7 +145,7 @@ python3 tools/gen_params.py --check  # CI 校验是否与代码一致
 - ✅ `px4_interface.py`：唯一 PX4 接口
 - ✅ 2 个节点完成迁移并**飞行验证**：`offboard_demo`、`waypoint_mission`
   （证据：`logs/smoke_iface.log`、`logs/smoke_wp2.log`）
-- ✅ `tools/gen_params.py` + `catalog/params.yaml`（14 节点 / 84 参数）
+- ✅ `tools/gen_params.py` + `catalog/params.yaml`（当前 15 节点 / 88 参数，以 `gen_params.py` 生成结果为准）
 - ✅ `catalog/scenarios.yaml`（13 场景，含实测指标与坑）
 
 ### 待办（按优先级）

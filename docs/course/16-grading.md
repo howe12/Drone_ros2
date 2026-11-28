@@ -244,7 +244,21 @@ N 次通过率  → 让"成功"可复现
 
 ### 3.3 参数调参素材
 
-`catalog/params.yaml` 收录了 14 个节点、84 个参数的注册表，由 `tools/gen_params.py` **自动生成**。
+`catalog/params.yaml` 是参数注册表，由 `tools/gen_params.py` **自动生成**。
+
+**实测**（本仓库当前状态）：
+
+```text
+$ python3 -c "import yaml;d=yaml.safe_load(open('catalog/params.yaml'))['nodes'];\
+print(len(d), sum(len(v['params']) for v in d.values()))"
+15 88
+```
+
+**15 个节点、88 个参数。**
+
+> **别把这两个数写死在文档里。**它们会随节点增加而变——本章早先写的是"14 个节点 / 84 个参数"，加了一个节点后就成了错的。
+>
+> **文档里该写的是"怎么查"，而不是"当前是多少"。**这也是为什么这张表必须自动生成：手工维护的数字必然会腐烂。
 
 **不要手改**——它是从源码 `declare_parameter` 抽出来的。手改会在下次生成时被覆盖，还会导致文档与代码不一致（第 14 章就发现过两处漂移）。
 
