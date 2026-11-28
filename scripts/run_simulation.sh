@@ -17,6 +17,33 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLATFORM="${1:-classic}"
 MODEL="${2:-}"
 WORLD="${3:-}"
+# ============================================================
+# ★ 单实例守卫: 已有仿真在跑时拒绝再起一个
+#
+# 为什么需要: 实测踩过 —— 残留的 gz 实例(进程名其实是 `ruby .../gz sim ...`,
+# 用 `pkill -x gz` 杀不掉)会和新实例抢同名话题, 导致新测试连到旧世界,
+# 录出来的画面是上一次的场景。宁可报错, 也不要静默起第二个。
+#
+# 覆盖: FORCE=1 bash scripts/run_simulation.sh ...   (强制启动, 危险)
+# ============================================================
+if [ "${FORCE:-0}" != "1" ]; then
+    # 注意: pgrep 无匹配时返回 1, 本脚本是 set -e, 不加 `|| true` 会静默退出
+    _gz=$(pgrep -cf "gz si[m]" 2>/dev/null || true); _gz=${_gz:-0}
+    _px4=$(pgrep -cf "px4_sitl_default/bin/p[x]4" 2>/dev/null || true); _px4=${_px4:-0}
+    _agt=$(pgrep -xc MicroXRCEAgent 2>/dev/null || true); _agt=${_agt:-0}
+    if [ "$_gz" -gt 0 ] || [ "$_px4" -gt 0 ] || [ "$_agt" -gt 0 ]; then
+        echo "✗ 检测到已有仿真在运行 (gz=$_gz px4=$_px4 agent=$_agt)，拒绝启动新实例。" >&2
+        echo "" >&2
+        echo "  这会造成两个仿真抢同名话题，测试结果不可信（曾因此录到错误世界的画面）。" >&2
+        echo "" >&2
+        echo "  处理:" >&2
+        echo "    1) 先清理:   bash scripts/clean_sim.sh" >&2
+        echo "    2) 再启动:   bash scripts/run_simulation.sh ..." >&2
+        echo "  确实要强制并行(不建议): FORCE=1 bash scripts/run_simulation.sh ..." >&2
+        exit 3
+    fi
+fi
+
 export PATH=/usr/bin:$HOME/.local/bin:$PATH
 export LD_LIBRARY_PATH=$HOME/.local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 source /opt/ros/humble/setup.bash
