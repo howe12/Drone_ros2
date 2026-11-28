@@ -71,7 +71,7 @@ ros2 topic hz /x500_mono_cam_0/camera/image_raw
 
 相机视角长这样：
 
-![相机原始视角](images/17_camera_view.png)
+![相机原始视角](images/17_e8_camera_view.png)
 
 **机载相机看到的画面：户外纹理地形，远处有可检测的物体。**
 
