@@ -689,6 +689,7 @@ self.dlog = lambda s: self.get_logger().info(s)   # 同时写文件
 
 ---
 
+
 ## 小结与下一步
 
 本章把第 1 章"会用"推进到"会写"：Offboard 三要素、NED 坐标、统一接口与两类典型故障（QoS 死锁、EKF 原点重置）都已在代码层面固化。
@@ -740,3 +741,96 @@ ros2 topic hz   /x500_0/fmu/out/vehicle_status
 
 1. 已预流设定点（≥ 20 拍 / 2 秒）；
 2. 当前状态允许切换（地面上未解锁时不允许）。
+
+---
+
+## 附录 C：裸版本——不用 `PX4Interface` 要写多少
+
+第 1.2 节的 30 行是靠 `PX4Interface` 撑起来的。如果从零手写，至少要写这些（**仅展示结构，不是完整代码**）：
+
+```python
+from px4_msgs.msg import (
+    OffboardControlMode, TrajectorySetpoint,
+    VehicleCommand, VehicleStatus, VehicleLocalPosition,
+)
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+QOS_PUB = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST, depth=1)
+QOS_SUB = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST, depth=1)
+
+ns = '/x500_0'
+self.pub_mode = self.create_publisher(OffboardControlMode, f'{ns}/fmu/in/offboard_control_mode', QOS_PUB)
+self.pub_sp   = self.create_publisher(TrajectorySetpoint,   f'{ns}/fmu/in/trajectory_setpoint',   QOS_PUB)
+self.pub_cmd  = self.create_publisher(VehicleCommand,       f'{ns}/fmu/in/vehicle_command',       QOS_PUB)
+self.create_subscription(VehicleStatus, f'{ns}/fmu/out/vehicle_status', self.cb_status, QOS_SUB)
+self.create_subscription(VehicleLocalPosition, f'{ns}/fmu/out/vehicle_local_position',
+                         self.cb_pos, QOS_SUB)
+```
+
+**然后每个消息都要自己填**：
+
+```python
+def publish_mode(self):
+    m = OffboardControlMode()
+    m.timestamp = int(self.get_clock().now().nanoseconds / 1000)   # ← 微秒
+    m.position = True
+    self.pub_mode.publish(m)
+
+def publish_setpoint(self):
+    sp = TrajectorySetpoint()
+    sp.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+    sp.position = [0.0, 0.0, -3.0]      # NED，向上为负
+    sp.yaw = 0.0
+    self.pub_sp.publish(sp)
+
+def send_command(self, command, p1=0.0, p2=0.0):
+    c = VehicleCommand()
+    c.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+    c.command = command
+    c.param1, c.param2 = float(p1), float(p2)
+    c.target_system = 1              # ← 多机时改这里，写错命令就被别机吃掉
+    c.target_component = 1
+    c.source_system = 1
+    c.source_component = 1
+    c.from_external = True
+    self.pub_cmd.publish(c)
+```
+
+**对比一下 `PX4Interface` 替你做了什么**：
+
+| 你本来要处理 | 接口里 |
+|---|---|
+| 两套 QoS 预设（错一个就死锁/静默） | `QOS_PUB` / `QOS_SUB` |
+| 时间戳单位（**微秒**，不是纳秒/毫秒） | 各方法内部 |
+| NED 符号（向上为负） | `alt()`、`enu_to_ned()` |
+| 预流 20 拍再切模式 | `request_offboard_and_arm()` |
+| EKF 稳定门控 | `ekf_stable` |
+| `target_system` 换算（实例号+1） | 构造参数 |
+
+**三个最容易错的地方**（手写时必踩）：
+
+**1. 时间戳是微秒**
+
+```python
+m.timestamp = int(self.get_clock().now().nanoseconds / 1000)   # ns / 1000 = µs
+```
+
+写成纳秒，PX4 会认为消息来自未来/过去，**直接丢弃**。
+
+**2. `trajectory_setpoint.position` 是长度 3 的数组，不是 x/y/z 三个字段**
+
+`lista 写 `sp.position[0] = ...` 也可以，但整体赋值更不容易漏。
+
+**3. `from_external = True` 必须设**
+
+否则 PX4 不认这是外部命令。
+
+> **结论**：接口不是"偷懒"，是**把六个静默陷阱封起来**。手写一遍有助于理解，但生产代码该用接口。
+
+---
