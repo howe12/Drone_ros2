@@ -126,9 +126,12 @@ tail -f logs/xtd2_sim.log                                      # 仿真日志（
 | Gitee | `gitee.com/huo-haijie/Drone_ros2` | SSH（公钥已配置，免密）|
 
 ```bash
-git push origin main          # 一条命令 -> 同时推 GitHub 和 Gitee
-bash scripts/push_all.sh      # 备选: 容错版(逐个推, 一个失败不影响另一个, 带重试)
+git push origin main                 # 一条命令 -> 同时推 GitHub 和 Gitee
+bash scripts/push_all.sh             # 备选: 容错版(逐个推, 一个失败不影响另一个, 带重试)
+bash scripts/setup_gitee_sync.sh     # 新克隆/新环境: 一键检查并修复双远端配置
 ```
+
+> 交接给其他 agent / 协作者的完整要求见 **[docs/GITEE_SYNC.md](GITEE_SYNC.md)**。
 
 查看/修改推送目标：
 

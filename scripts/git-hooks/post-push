@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# post-push: 确保 GitHub 与 Gitee 同步（保险丝，不是主要手段）
+#
+# 背景: 主要手段是 origin 配置两个 push URL（一次 git push 双发）。
+# 但若有人在新克隆/新环境里只配了 GitHub，这个 hook 会在推送后补推 Gitee。
+#
+# 约定:
+#   - 只在推送目标是 origin 时动作（推 gitee 本身不会触发递归）
+#   - 任何失败只告警，不影响已完成的推送（post-push 无法回滚）
+#   - 用 GITEE_SYNC_SKIP=1 可临时跳过
+set -u
+REMOTE="${1:-}"
+[ "${GITEE_SYNC_SKIP:-0}" = "1" ] && exit 0
+[ "$REMOTE" = "origin" ] || exit 0
+
+# origin 已含 gitee 的 push URL -> 本次推送已经同步过，直接退出
+if git remote get-url --push --all origin 2>/dev/null | grep -q 'gitee\.com'; then
+  exit 0
+fi
+
+if ! git remote get-url gitee >/dev/null 2>&1; then
+  echo "[post-push] 警告: 未配置 gitee 远端，Gitee 未同步。" >&2
+  echo "[post-push] 修复: bash scripts/setup_gitee_sync.sh" >&2
+  exit 0
+fi
+
+echo "[post-push] 检测到 origin 只推了 GitHub，正在补推 Gitee ..."
+if git push gitee --all --quiet 2>/dev/null && git push gitee --tags --quiet 2>/dev/null; then
+  echo "[post-push] ✅ Gitee 已同步"
+else
+  echo "[post-push] ⚠️ Gitee 同步失败（已推送的 GitHub 内容不受影响）" >&2
+  echo "[post-push] 手动补推: bash scripts/push_all.sh" >&2
+fi
+exit 0

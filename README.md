@@ -2,6 +2,8 @@
 
 > 📖 **开源课程已上线**：[howe12.github.io/Drone_ros2](https://howe12.github.io/Drone_ros2/) —— L0 首飞 → L6 集群/VTOL 阶梯实验。课程源码在 [docs/](docs/README.md)。
 >
+> 🔄 **双平台同步**：本仓库同时托管在 [GitHub](https://github.com/howe12/Drone_ros2) 与 [Gitee](https://gitee.com/huo-haijie/Drone_ros2)，一次 `git push origin main` 双发；协作者请先读 [docs/GITEE_SYNC.md](docs/GITEE_SYNC.md)。
+>
 > ⚠️ **验证状态以本文档的[自动判定表](#验证状态与自动判分)为准**：12 个场景中 **9 个通过、3 个未达标**（集群、VTOL、VIO）。
 > 所有结论都可用 `bash scripts/grade.sh` 复现，不依赖截图。
 
