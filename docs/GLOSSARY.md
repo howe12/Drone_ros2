@@ -18,6 +18,10 @@
 | 机架（airframe） | PX4 里"机型+参数"的配置模板，决定控制器结构；课程自建 4012/4013/4014 | [03](course/03-sensors.md) |
 
 ## 飞控与估计
+| uORB | PX4 内部的发布订阅总线，飞控各模块靠它交换数据 | [00](course/00-basics.md) |
+| HITL | Hardware-In-The-Loop：飞控用真实硬件、传感器用仿真 | [00](course/00-basics.md) |
+| PWM / DShot | 两种电调信号：PWM 用占空比，DShot 是数字协议（更精确抗干扰） | [00](course/00-basics.md) |
+| QGC | QGroundControl，地面站软件，用于参数配置与校准 | [00](course/00-basics.md) |
 
 | 术语 | 白话解释 | 深入 |
 |---|---|---|
@@ -53,6 +57,7 @@
 | 协方差 | 估计的不确定度；SLAM 需要带协方差的里程计 | [07](course/07-slam.md) |
 
 ## 通信与软件
+| slam_toolbox | ROS2 的 2D 激光 SLAM 实现（图优化类），输出栅格地图 | [07](course/07-slam.md) |
 
 | 术语 | 白话解释 | 深入 |
 |---|---|---|
@@ -71,6 +76,10 @@
 | use_sim_time | 让节点用仿真时钟（/clock）而非系统时钟 | [07](course/07-slam.md) |
 
 ## 感知与规划
+| YOLO | 单阶段目标检测模型，一次前向同时给出框与类别 | [05](course/05-yolo.md) |
+| NMS | 非极大值抑制：同一目标多个候选框时只保留最可信的那个 | [05](course/05-yolo.md) |
+| letterbox | 保持宽高比缩放到网络输入尺寸，空余部分填灰边 | [05](course/05-yolo.md) |
+| CUDA | NVIDIA 的 GPU 计算平台；模型推理可用 GPU 加速 | [05](course/05-yolo.md)、[15](course/15-sim2real.md) |
 
 | 术语 | 白话解释 | 深入 |
 |---|---|---|
