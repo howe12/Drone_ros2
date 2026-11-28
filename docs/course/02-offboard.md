@@ -94,6 +94,8 @@ how: |
 -->
 ![图 2.1 状态变化](images/PLACEHOLDER-shot-ch02-status-echo.png)
 
+**图 2.1　飞行过程中的状态变化：解锁后 `arming_state` 变 2，切 Offboard 后 `nav_state` 变 14。**
+
 ### 1.2 动手：写一个自己的最小节点
 
 目标：起飞到 3m，悬停一会儿后降落。用课程统一接口 `PX4Interface`，约 30 行。
@@ -351,6 +353,8 @@ prompt: |
   配色蓝灰，转移条件文字清晰。
 -->
 ![图 2.4 状态机](images/PLACEHOLDER-fig-ch02-state-machine.png)
+
+**图 2.4　最小节点内部的状态机：预流 → 切模式 → 解锁 → 飞 → 降落。**
 
 要点：
 
