@@ -713,6 +713,7 @@ N 次通过率    → 让"成功"可复现
 
 ---
 
+
 ## 小结与下一步
 
 本章你从"被评判"变成了"设计评判"。
@@ -738,7 +739,7 @@ N 次通过率    → 让"成功"可复现
 
 ---
 
-## 附录：判分速查
+## 附录 A：判分速查
 
 ### 命令
 
@@ -776,3 +777,66 @@ N 次通过率    → 让"成功"可复现
 | 只能判可测量的量 | 主观质量靠人工评审 |
 | 依赖仿真真值 | 实机需另设验证方式 |
 | 部分场景未验证 | `status: unverified` 明确禁止当作业 |
+
+---
+
+## 附录 B：全部 12 个场景的指标总表
+
+这张表由 `catalog/scenarios.yaml` 整理而来，**是判分的"菜单"**。
+
+| 场景 id | 难度 | 状态 | 指标 |
+|---|---|---|---|
+| `ctrl.takeoff_hover_land` | L0 | verified | 起飞高度误差 < 0.4 m；全程耗时 < 75 s；结束状态 disarmed |
+| `ctrl.waypoint_square` | L1 | verified | 到点误差 < 0.5 m；命中航点数 ≥ 4；结束状态 disarmed |
+| `vision.yolo_detect` | L2 | verified | 启动成功 ≥ 1；无异常退出 ≥ 1 |
+| `vision.aruco_precision_landing` | L3 | verified | 落点偏差 < 0.15 m；结束状态 disarmed |
+| `slam.lio_odometry` | L4 | verified | 高度误差 < 0.2 m；里程计频率 > 5 Hz；轨迹跨度 > 2 m |
+| `plan.obstacle_avoidance` | L5 | verified | 最近接近距离 < 0.8 m；结束误差 < 1.5 m；障碍最小距离 > 0.8 m |
+| `mission.behavior_tree` | L5 | verified | 根节点状态 ≥ 1；到达航点数 ≥ 3；结束状态 disarmed |
+| `safety.geofence` | L5 | verified | 围栏事件 ≥ 1；误报 < 1 |
+| `multi.formation` | L6 | verified | 队形误差 < 0.6 m；双机同时起飞 ≥ 1 |
+| `swarm.cross_3uav` | L6 | verified | 最小间距 > 1.0 m；全部到达 ≥ 3 架 |
+| `vtol.transition` | L6 | verified | 固定翼段空速 > 15 m/s；垂直起飞高度 > 15 m；结束状态 disarmed |
+| `vio.vins_mono` | L4 | **unverified** | 里程计输出频率 > 5 Hz |
+
+### 从这张表能看出什么
+
+**1. 难度阶梯 L0–L6 是真的**
+
+| 难度 | 场景数 | 特征 |
+|---|---|---|
+| L0–L1 | 2 | 单机、无感知 |
+| L2–L3 | 2 | 单传感器、需要图像理解 |
+| L4–L5 | 4 | 状态估计、规划、安全、任务编排 |
+| L6 | 3 | 多机与特殊构型 |
+
+**2. 几乎所有场景都有"结束状态 disarmed"**
+
+六个场景带这一条。**它是"有效性指标"**（6.7 节）——证明任务真的走完了整个流程，而不是中途卡住被强行结束。
+
+**3. 指标数量 1–3 条，没有一个是"越多越好"**
+
+最多的三条（`slam.lio_odometry`、`plan.obstacle_avoidance`、`vtol.transition`），最少的只有一条（`vio.vins_mono`）。
+
+**为什么这么少**：**指标太多会互相牵制，反而难调**。三条以内通常能覆盖"完成了没 / 做得好不好 / 有没有作弊"。
+
+**4. 那条 `unverified` 是唯一的例外**
+
+`vio.vins_mono` 只有一条频率指标——因为它跑不通（第 8 章），只能验证"有没有输出"。**指标少，恰恰反映了它没被验证。**
+
+### 怎么用这张表
+
+| 你想做的 | 用哪个场景 |
+|---|---|
+| 快速验证环境 | `ctrl.takeoff_hover_land`（L0，最快） |
+| 练航点与坐标 | `ctrl.waypoint_square` |
+| 练感知 | `vision.yolo_detect`、`vision.aruco_precision_landing` |
+| 练状态估计 | `slam.lio_odometry` |
+| 练规划与安全 | `plan.obstacle_avoidance`、`safety.geofence` |
+| 练任务编排 | `mission.behavior_tree` |
+| 练多机 | `multi.formation`、`swarm.cross_3uav` |
+| 练特殊构型 | `vtol.transition` |
+
+**建议顺序**：按 L0→L6 走一遍。**每一级的失败模式都不同**，跳级会漏掉基础问题。
+
+---
