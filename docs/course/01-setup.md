@@ -188,21 +188,12 @@ how: |
 
 先解释 **DDS**：一种"发布-订阅"通信标准——程序之间不直接调用，而是把消息发到**按名字区分的通道（话题）**，谁需要谁订阅。ROS2 底层就是它。PX4 跑在嵌入式硬件上，用的是它的轻量变体 **uXRCE-DDS**；两种"方言"不同，所以需要 `MicroXRCEAgent` 当翻译：
 
-<!-- IMAGE_PLACEHOLDER
-id: fig-ch01-data-link
-caption: 图 1.3　指令往下走，状态往上走；中间那一段断了，全线哑巴。
-alt: 数据链路示意图，Gazebo 提供传感器与执行器接口，PX4 SITL 经 uXRCE-DDS 连接 MicroXRCEAgent，Agent 再以 DDS 连接 ROS2 节点
-prompt: |
-  技术教材插图，白底，扁平化风格，中文标注，无真人无卡通无水印。横向四段架构图：
-  第 1 段标 "Gazebo Harmonic（物理世界：模型、传感器、画面）"；
-  第 2 段标 "PX4 SITL（飞控固件：姿态控制、EKF）"，与第 1 段之间用双向箭头标 "传感器数据 / 电机指令"；
-  第 3 段标 "MicroXRCEAgent（协议代理，UDP 8888）"，与第 2 段之间双向箭头标 "uXRCE-DDS"；
-  第 4 段标 "ROS2 节点（你的任务程序）"，与第 3 段之间双向箭头标 "DDS 话题 /fmu/..."。
-  第 4 段上方虚线框标注示例话题 "/x500_0/fmu/out/vehicle_status"。圆角矩形组件，箭头清晰，配色只用蓝灰。
--->
-![图 1.3 数据链路](images/PLACEHOLDER-fig-ch01-data-link.png)
+<!-- 官方图：PX4 用户指南《uXRCE-DDS (PX4-ROS 2 Bridge)》，CC BY 4.0，已下载至本地 external/ -->
+![图 1.3 uXRCE-DDS 与 ROS2 的官方架构](images/external/px4-uxrce-dds-ros2-arch.svg)
 
-**图 1.3　指令往下走，状态往上走；中间那一段断了，全线哑巴。**
+**图 1.3　官方架构：PX4 跑 uXRCE-DDS 客户端，Agent 把它转成标准 DDS，ROS2 侧看到的就是话题。**
+
+*图源：PX4 User Guide《uXRCE-DDS (PX4-ROS 2 Bridge)》，CC BY 4.0。Gazebo 接在 PX4 左侧（提供传感器与执行器），图中未画出。*
 
 Agent 是**必需的中间环节**。没有它，节点看不到 `/fmu/...` 话题，PX4 也收不到指令。确认链路：
 
