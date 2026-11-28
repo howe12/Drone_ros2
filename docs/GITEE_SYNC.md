@@ -106,11 +106,32 @@ git ls-remote gitee  main | cut -c1-7      # Gitee
 ## 7. Gitee Pages（课程网站）
 
 GitHub 侧课程站点走 GitHub Pages（`howe12.github.io/Drone_ros2`）。
-Gitee Pages 是**另一套服务**，需要：
+Gitee Pages 是**另一套服务**，站点地址将是 `https://huo-haijie.gitee.io/Drone_ros2/`。
 
-1. Gitee 仓库 → 服务 → Gitee Pages
-2. 完成实名认证
-3. 部署分支选 `main`，目录选 `docs/`
-4. **每次推送后需在网页手动点"更新"**（Gitee Pages 不会自动跟随推送）
+### 7.1 仓库侧已准备就绪（无需再改）
 
-docsify 使用 hash 路由，部署到 Gitee Pages 一般无需改配置。
+- docsify 及全部插件已**下载到本地 `docs/vendor/`**，`index.html` 不再依赖 jsdelivr 等外部 CDN
+  （jsdelivr 与 Google Fonts 在国内不稳定，已移除）。GitHub / Gitee 两侧都能自包含加载。
+- 部署目录用 `docs/`，docsify 用 hash 路由，相对路径在 Gitee Pages 下无需改配置。
+
+一键检查就绪状态 + 探测站点是否上线：
+
+```bash
+bash scripts/deploy_gitee_pages.sh --check
+```
+
+### 7.2 开通步骤（账号侧操作，脚本/API 无法代办）
+
+Gitee Pages 免费版必须**实名认证 + 网页手动开通**，本仓库无 Gitee API token，故以下步骤需你在浏览器完成：
+
+1. 打开 `https://gitee.com/huo-haijie/Drone_ros2/pages`（或仓库首页 → 服务 → Gitee Pages）
+2. 若提示实名认证，先完成实名认证
+3. 部署分支选 `main`，部署目录选 `docs/`，点「启动/部署」
+4. 成功后访问 `https://huo-haijie.gitee.io/Drone_ros2/`
+
+运行 `bash scripts/deploy_gitee_pages.sh` 会打印上述步骤并尝试打开设置页。
+
+### 7.3 每次推送后手动更新
+
+**Gitee Pages 不会自动跟随推送**：每次 `git push origin main` 后，需回到 Pages 设置页手动点「更新」才会重新部署。
+（GitHub Pages 是自动的；这是两个平台的差异。）
