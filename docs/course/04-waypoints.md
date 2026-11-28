@@ -838,3 +838,99 @@ waypoints:
 **注意四个 `yaw` 分别是 0 / π/2 / π / −π/2**，对应四个朝向。**这种"到点转个方向拍一张"就是最基础的巡检。**
 
 ---
+
+## 附录 C：任务文件校验脚本
+
+第 2.11 节的四类 YAML 错误（Tab 缩进、z 写正值、单位混了、航点太少）里，后三类都能用脚本提前查出来。
+
+把下面这段存成 `tools/check_mission.py`：
+
+```python
+#!/usr/bin/env python3
+# 校验航点任务文件：数量、z 符号、时间预算、最远距离
+import sys, math, yaml
+
+
+def check(path, default_speed=1.5):
+    with open(path) as f:
+        cfg = yaml.safe_load(f)
+
+    wps = cfg.get("waypoints") or []
+    speed = float(cfg.get("cruise_speed", default_speed))
+    errs, warns = [], []
+
+    if len(wps) < 2:
+        errs.append(f"航点只有 {len(wps)} 个，至少要 2 个")
+
+    for i, w in enumerate(wps):
+        z = float(w.get("z", 0))
+        if z > 0:
+            errs.append(f"第 {i+1} 个航点 z={z} 为正 —— NED 下会往地下钻")
+
+    zs = {-float(w.get("z", 0)) for w in wps}
+    if len(zs) > 1:
+        warns.append(f"高度不统一：{sorted(zs)}，爬升会耗时间")
+
+    # 时间预算：起飞 5s + 航段 + hold + 降落 8s
+    total = 13.0
+    prev = (0.0, 0.0, -float(wps[0].get("z", 0))) if wps else (0, 0, 0)
+    for w in wps:
+        cur = (float(w.get("x", 0)), float(w.get("y", 0)), float(w.get("z", 0)))
+        total += math.dist(prev[:2], cur[:2]) / speed
+        total += abs(cur[2] - prev[2]) / 1.0
+        total += float(w.get("hold", 0.0))
+        prev = cur
+    warns.append(f"预计耗时约 {total:.0f} s（含起降），确认小于场景 timeout")
+
+    far = max(math.hypot(float(w.get("x", 0)), float(w.get("y", 0))) for w in wps) if wps else 0
+    warns.append(f"最远航点距原点约 {far:.2f} m，围栏半径要大于它")
+
+    print(f"== {path}")
+    print(f"   航点 {len(wps)} 个，巡航 {speed} m/s")
+    for e in errs:
+        print(f"   [错误] {e}")
+    for w in warns:
+        print(f"   [提示] {w}")
+    return 0 if not errs else 1
+
+
+if __name__ == "__main__":
+    sys.exit(check(sys.argv[1]))
+```
+
+### 用法与输出
+
+```bash
+python3 tools/check_mission.py ros2_ws/src/drone_sim/config/mission_square.yaml
+```
+
+```text
+== mission_square.yaml
+   航点 4 个，巡航 1.5 m/s
+   [提示] 预计耗时约 25 s（含起降），确认小于场景 timeout
+   [提示] 最远航点距原点约 4.24 m，围栏半径要大于它
+```
+
+### 四项检查对应哪类错误
+
+| 检查 | 对应第 2.11 节的哪类 |
+|---|---|
+| z 为正 | **最隐蔽的那个**（往地下钻） |
+| 航点 < 2 | "起飞后直接降落" |
+| 时间预算 | "跑到一半超时"（案例 7） |
+| 最远距离 | 围栏设太小导致误触发（第 11 章） |
+
+**它不检查 Tab 缩进**——那是 YAML 解析层的事，`yaml.safe_load` 失败会直接抛异常，**报错信息本身就够了**。
+
+### 为什么值得写这种脚本
+
+| 不写 | 写 |
+|---|---|
+| 每次手工核对 | 一条命令 |
+| 容易漏掉 z 符号 | 一定会报 |
+| 时间靠估 | 有算式 |
+
+**成本约 40 行，收益是每次任务省一轮试飞。**
+
+> **工程习惯**：凡是"每次都要人工核对一遍"的事，都值得写成脚本。
+> **人最容易在重复的事上出错。**
