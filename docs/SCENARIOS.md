@@ -4,16 +4,17 @@
 
 ## Harmonic / XTDrone2 平台
 
-| 世界 | 用途 | 状态 | 启动命令 |
-|---|---|---|---|
-| aruco | ArUco 靶标场地, 精准降落 (E8) | ✅ 实测 | `... xtd2 gz_x500 aruco` |
-| walls | 障碍墙场地, 避障规划 (E7) | ✅ 实测 (激光 30Hz) | `... xtd2 gz_x500_lidar_2d walls` |
-| lawn | 草地户外, 通用飞行 | ✅ 实测 | `... xtd2 gz_x500 lawn` |
-| baylands | 湾区大地形, 长航程 | 可用 (上游自带) | `... xtd2 gz_x500 baylands` |
-| default | 极简默认 | 可用 | `... xtd2 gz_x500 default` |
-| windy | 风扰测试 | 可用 | `... xtd2 gz_x500 windy` |
-| rover | 无人车场景 | 可用 (配 gz_r1_rover) | `... xtd2 gz_r1_rover rover` |
-| indoor1 | 室内 cafe 场景, 室内 SLAM (E4) | ⚠️ 已知问题 | 见下 |
+| 世界 | 用途 | 来源 | 状态 | 启动命令 |
+|---|---|---|---|---|
+| aruco | ArUco 靶标场地, 精准降落 (E8) | XTDrone2 (贴图由我们替换为 DICT_4X4_50 ID42) | ✅ 实测 | `... xtd2 gz_x500 aruco` |
+| walls | 障碍墙场地, 避障/2D 激光 SLAM | XTDrone2 (与 PX4 同名世界内容不同) | ✅ 实测 (激光 30Hz) | `... xtd2 gz_x500_lidar_2d walls` |
+| **e7_obstacles** | 小块障碍群, 局部规划避障 (E7) | **自建** (补丁 0016) | ✅ 实测 | `... xtd2 gz_x500_depth e7_obstacles` |
+| lawn | 草地户外, 通用飞行 | PX4 上游 (`Tools/simulation/gz/worlds/lawn.sdf` 逐字节相同) | ✅ 实测 | `... xtd2 gz_x500 lawn` |
+| baylands | 湾区地形, 视觉/VIO | PX4 上游 (逐字节相同) | ✅ 实测 | `... xtd2 gz_x500 baylands` |
+| windy | 风扰测试 | PX4 上游 (逐字节相同) | 可用 | `... xtd2 gz_x500 windy` |
+| default | 极简默认 (空场) | XTDrone2 | ✅ 实测 | `... xtd2 gz_x500 default` |
+| rover | 无人车场景 | XTDrone2 | 可用 (配 gz_r1_rover) | `... xtd2 gz_r1_rover rover` |
+| indoor1 | 室内 cafe 场景 | XTDrone2 (引用 Gazebo **Classic** 旧资产) | ⚠️ 不可用 (gz abort) | 见下 |
 
 ### indoor1 已知问题
 引用旧 Gazebo Fuel 模型 (cafe/cafe_table/cinder_block_wide/coke_can/grey_tote)。
@@ -21,6 +22,22 @@
 xtd2_gz_sim/models 并重编), 但 Harmonic 加载时 gz sim 内部 abort (旧模型 SDF/网格
 兼容性问题)。**待修**: 逐个替换问题模型或用 Harmonic 原生室内资产重建。
 室内 SLAM 可先用 walls + 自建简单室内世界替代。
+
+## 模型来源
+
+XTDrone2 的模型目录 (`third_party/XTDrone2/xtd2_gz_sim/models/`) 共 34 个，来源分三类：
+
+| 类别 | 模型 | 来源 |
+|---|---|---|
+| PX4 上游原样 | `x500`（与 PX4 逐字节相同）、`x500_base`、`x500_depth`、`x500_mono_cam`、`x500_vision`、`px4vision`、`standard_vtol`、`rc_cessna`、`advanced_plane`、`r1_rover`、`lawnmower`、`omnicopter`、`mono_cam`、`OakD-Lite` | PX4 `Tools/simulation/gz/models/` |
+| XTDrone2 自有/改造 | `x500_lidar_2d`、`x500_lidar_down`、`x500_lidar_front`、`x500_gimbal`、`x500_mono_cam_down`、`lidar_2d_v2`、`gimbal`、`airspeed`、`quadtailsitter`、`tiltrotor`、`rover_ackermann` | XTDrone2 仓库 |
+| **本项目新增** | `lidar_3d_v1`（16 线 3D 激光）、`x500_lidar_3d` | 补丁 0015 |
+| 场景资产（另见） | `arucotag`、`cafe`、`cafe_table`、`cinder_block_wide`、`coke_can`、`grey_tote` | 上游/`osrf/gazebo_models` |
+
+另有 **补丁 0012** 给 `x500_base/model.sdf` 增加 `OdometryPublisher` 插件（上游只有 `x500_vision` 有）。
+
+**PX4 机架注册**（`ROMFS/.../init.d-posix/airframes/`）：14 个 `gz_*` 机架，
+其中 `4012_gz_x500_lidar_2d`、`4013_gz_x500_mono_cam_down`、`4014_gz_x500_lidar_3d` 为本项目新增（补丁 0008/0013/0015）。
 
 ## Gazebo Classic 平台
 
