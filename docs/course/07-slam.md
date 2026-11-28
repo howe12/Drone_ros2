@@ -325,6 +325,76 @@ ros2 param get /slam_toolbox use_sim_time        # 应为 True
 ros2 topic hz /clock                              # 应有数据
 ```
 
+### 2.9 逐个看 slam_toolbox 的配置
+
+`config/slam_toolbox_2d.yaml` 里的每一项都不是随手写的。挑九个关键项：
+
+| 参数 | 值 | 为什么是这个值 |
+|---|---|---|
+| `odom_frame` | `odom` | TF 树中间层 |
+| `map_frame` | `map` | 全局地图系 |
+| `base_frame` | `base_link` | 机体 |
+| `scan_topic` | `/x500_lidar_2d_0/scan` | **写死了命名空间** |
+| `mode` | `mapping` | 建图模式（不是定位模式） |
+| `resolution` | `0.05` | 5cm/格，与实测 252×410 对应 |
+| `max_laser_range` | `25.0` | 传感器 30m，但**配置截到 25m** |
+| `map_update_interval` | `2.0` | 每 2 秒更新一次地图 |
+| `transform_publish_period` | `0.02` | 50 Hz 发布 TF |
+
+**三个值得注意的点**：
+
+**第一，`scan_topic` 写死了命名空间。** 这意味着换机型或换实例号就必须改 yaml——这也是为什么课程的多机实验要单独配。**更好的做法是用 launch 参数传入**，但当前实现是硬编码。
+
+**第二，`max_laser_range = 25` 而传感器量程是 30。** 为什么截掉 5 米？因为远距离激光点噪声大、角度误差大，纳入建图反而会拉低精度。**这是"主动丢弃数据"换取质量的典型取舍。**
+
+**第三，`map_update_interval = 2.0`。** 地图不是实时刷新的，每 2 秒更新一次。你第一次看 RViz 时觉得"地图长得慢"，就是这个原因——不是建图慢，是**发布慢**。
+
+**求解器配置**：
+
+```text
+solver_plugin: solver_plugins::CeresSolver
+ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+ceres_preconditioner: SCHUR_JACOBI
+ceres_trust_strategy: LEVENBERG_MARQUARDT
+```
+
+这是标准的**图优化**配置：Ceres 求解稀疏正规方程，SCHUR 预处理利用"位姿-地图"的块结构，LM 策略保证收敛稳定。**你不需要改它，但要知道它是"优化类 SLAM"而不是"滤波类"。**
+
+**TF 时间参数**：
+
+| 参数 | 值 | 作用 |
+|---|---|---|
+| `transform_timeout` | 0.5 s | 等待某帧 TF 的最长时间 |
+| `tf_buffer_duration` | 30.0 s | TF 缓存多长历史 |
+
+**`tf_buffer_duration = 30` 的含义**：如果某帧数据的时间戳比"现在"早超过 30 秒，TF 就查不到了。这解释了为什么"节点卡住一段时间后恢复"会失败——中间那段 TF 已经过期。
+
+### 2.10 回环与 `map→odom` 的跳变
+
+**回环检测（loop closure）**是 SLAM 的关键能力：飞机绕一圈回到起点，算法认出"这里我来过"，于是修正累积漂移。
+
+**修正发生在哪**：`map→odom` 这条 TF 边上。
+
+```text
+map ──(会跳)──> odom ──(连续)──> base_link
+```
+
+| 边 | 特性 | 为什么 |
+|---|---|---|
+| `map → odom` | **会跳变** | 回环修正直接改这里 |
+| `odom → base_link` | **保持连续** | 由里程计给出，保证控制平滑 |
+
+**这个设计的巧妙之处**：修正被"隔离"在最外层，机体自己的运动估计保持连续。所以控制器不会因为一次回环修正而突变。
+
+**怎么观察**：
+
+```bash
+ros2 run tf2_ros tf2_echo map odom      # 回环时这个变换会突然变化
+ros2 run tf2_ros tf2_echo odom base_link # 这个应该平滑
+```
+
+**事务性提醒**：如果你在飞控里直接用 `map` 系做控制，回环跳变会让飞机"抖一下"。**正确做法是用 `odom` 系做控制，用 `map` 系做任务规划。**
+
 ---
 
 ## 3. 案例：五个静默故障
@@ -382,6 +452,94 @@ ros2 topic echo /x500_lidar_3d_0/lidar_3d/points --once --field width
 **原因**：飞机没飞远（航点没执行）、或激光量程被限制、或分辨率参数不是 0.05。
 
 **验证**：把地图尺寸 × 分辨率，与场景实际尺寸对比；再确认航点轨迹跨度 > 2m（判分指标之一）。
+
+### 案例 6：回环修正让飞机"抖一下"
+
+**现象**：飞机飞完一圈回到起点附近，位置指令突然被修正，飞机有一次明显抖动。
+
+**原因**：控制环里用了 `map` 系，而回环修正直接改 `map→odom`（2.10 节）。
+
+**诊断**：
+
+```bash
+ros2 run tf2_ros tf2_echo map odom     # 在回环时刻看是否有跳变
+```
+
+**修复**：控制用 `odom` 系，任务规划用 `map` 系。这是分层设计的本意。
+
+### 案例 7：换机型后 SLAM 完全不工作
+
+**现象**：换成 `gz_x500_lidar_3d` 后跑 `slam_2d.launch.py`，什么都不出。
+
+**原因**：`slam_toolbox_2d.yaml` 里 `scan_topic` **写死了** `/x500_lidar_2d_0/scan`（2.9 节）。3D 机型没有这个话题。
+
+**验证**：
+
+```bash
+ros2 topic list | grep scan     # 看实际话题名
+```
+
+**处理**：改 yaml 里的 `scan_topic`，或用 launch 参数覆盖。**这是硬编码留下的债。**
+
+---
+
+## 4. 进阶
+
+### 4.1 地图怎么评估质量
+
+"地图看起来像"不够。可量化的指标：
+
+| 指标 | 怎么算 | 合格线 |
+|---|---|---|
+| **尺寸一致性** | 地图尺寸×分辨率 vs 场景实测 | 误差 < 10% |
+| **障碍格数** | pgm 里值为 100 的格数 | 与场景物体数量匹配 |
+| **空洞率** | 未知格占比 | 越低越好（扫得全） |
+| **重影** | 同一面墙出现两条 | 无（说明配准准） |
+
+**"重影"是最直观的质量指标**：如果一面墙在地图上变成两条平行线，说明位姿估计有漂移。
+
+### 4.2 2D 与 3D 怎么选
+
+| 需求 | 选 2D | 选 3D |
+|---|---|---|
+| 室内平面导航 | ✅ | 过度 |
+| 需要避障高度 | ❌ | ✅ |
+| 算力受限 | ✅ | ❌ |
+| 需要高精度里程计 | 一般 | ✅（LIO 9cm） |
+
+**课程两条都做了，因为它们的用途不同**：2D 给 nav2 做路径规划，3D 给状态估计。
+
+### 4.3 逐段读 `slam_2d.launch.py`
+
+这个 launch 只有 51 行，做三件事：
+
+**第一件：里程计转 TF**
+
+```python
+odom_tf = Node(
+    executable='odom_to_tf',
+    parameters=[{'odom_topic': [LaunchConfiguration('ns'), '/odometry']}],
+)
+```
+
+**注意 `ns` 是 launch 参数**——这是比 yaml 硬编码更好的做法（对比案例 7）。
+
+**第二件：静态 TF（激光安装位置）**
+
+```python
+# 静态 TF: base_link -> 激光坐标系
+# 安装位姿来自 x500_lidar_2d/model.sdf: .12 0 .26
+```
+
+激光装在机体 `(0.12, 0, 0.26)` 处——**前方 12cm、上方 26cm**。这个值必须与 SDF 里的实际安装位置一致，否则地图会系统性偏移。
+
+**第三件：起 slam_toolbox**
+
+```python
+'slam_params_file': slam_params,
+```
+
+**这三件事的顺序有意义**：先有 TF，再有 SLAM。TF 缺一环，SLAM 就静默不工作（2.3 节）。
 
 ---
 
