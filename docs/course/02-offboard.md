@@ -825,7 +825,7 @@ m.timestamp = int(self.get_clock().now().nanoseconds / 1000)   # ns / 1000 = µs
 
 **2. `trajectory_setpoint.position` 是长度 3 的数组，不是 x/y/z 三个字段**
 
-`lista 写 `sp.position[0] = ...` 也可以，但整体赋值更不容易漏。
+写成 `sp.position[0] = ...` 也可以，但整体赋值更不容易漏。
 
 **3. `from_external = True` 必须设**
 
