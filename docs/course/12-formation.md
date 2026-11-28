@@ -694,6 +694,7 @@ offset   = (0,2) − (2,0) = (-2, +2)
 
 ---
 
+
 ## 小结与下一步
 
 本章你让两架飞机同时飞起来，也踩透了多机的四个新问题：**实例隔离、命令路由、参数共享、坐标原点**。
@@ -708,7 +709,7 @@ offset   = (0,2) − (2,0) = (-2, +2)
 
 ---
 
-## 附录：本章参数与机制速查
+## 附录 A：本章参数与机制速查
 
 ### 节点参数（`formation_follower`）
 
@@ -743,3 +744,89 @@ offset   = (0,2) − (2,0) = (-2, +2)
 | 文件 | 实例工作目录 | `parameters.bson` 互相覆盖 |
 | MAVLink | `MAV_SYS_ID = N+1` | 命令被别机执行 |
 | DDS | `PX4_UXRCE_DDS_NS` | 数据串台 |
+
+---
+
+## 附录 B：多机排障速查
+
+多机的问题几乎都能用"四个检查"定位。按顺序做。
+
+### 检查一：两架都起来了吗
+
+```bash
+# 看 gz 里有没有两个模型
+gz model --list
+
+# 看话题有没有两个命名空间
+ros2 topic list | grep -E "/x500_[01]/fmu" | head
+```
+
+**只有一个命名空间** → `num:=2` 没生效，或 launch 参数写错。
+
+### 检查二：SYS_ID 是不是 1 和 2
+
+```bash
+ros2 topic echo /x500_0/fmu/out/vehicle_status --once --field system_id
+ros2 topic echo /x500_1/fmu/out/vehicle_status --once --field system_id
+```
+
+**两个都是 1** → 实例没有独立启动（`-i` 参数或工作目录问题）。
+
+### 检查三：命令发给谁了
+
+```bash
+# 看两点：命令里的 target_system，和执行结果
+ros2 topic echo /x500_1/fmu/in/vehicle_command --once --field target_system
+```
+
+**恒为 1** → `target_system` 没传对，命令全被 0 号机吃了（案例 1）。
+
+### 检查四：参数是不是互相覆盖
+
+```bash
+# 看两个实例的工作目录是否不同
+ps -ef | grep "px4 -i" | grep -v grep
+```
+
+**看到同一个 `-w` 目录** → `parameters.bson` 会互相覆盖（案例 2）。
+
+---
+
+### 现象 → 原因 对照表
+
+| 现象 | 最可能原因 | 先跑 |
+|---|---|---|
+| 只有一个模型 | `num` 未生效 | `gz model --list` |
+| 2 号机不解锁 | `target_system` 错 | 检查二的命令 |
+| 0 号机行为异常 | 命令被它吃了 | 检查三 |
+| 参数改了没生效 | `parameters.bson` 冲突 | 检查四 |
+| 队形越飞越散 | `cruise_speed` 不够 | 看误差趋势 |
+| 队形整体偏移 | offset 没扣出生间距 | 算两机世界坐标差 |
+| 三机叠在一起 | offset 全用默认值 | 2.6 节 |
+| 起飞不同步 | 两任务启动时间差大 | 看解锁时间戳 |
+
+### 一条命令看全貌
+
+```bash
+# 一次性打出两机的位置、SYS_ID、解锁状态
+for ns in /x500_0 /x500_1; do
+  echo "== $ns"
+  ros2 topic echo ${ns}/fmu/out/vehicle_status --once --field system_id
+  ros2 topic echo ${ns}/fmu/out/vehicle_status --once --field arming_state
+  ros2 topic echo ${ns}/pose --once --field poses
+done
+```
+
+**这条命令值得存下来**：多机调试时，80% 的问题看这三个数就清楚了。
+
+### 清理现场
+
+```bash
+# 多机的残留进程特别多，务必先清场
+bash scripts/clean_sim.sh
+ps -ef | grep -E "px4 -i|MicroXRCE" | grep -v grep
+```
+
+**为什么强调清场**：上一轮的 1 号机若没退干净，新一轮会抢同样的端口和命名空间，行为极其诡异（第 12 章的多实例干扰就是这么来的）。
+
+---
