@@ -153,7 +153,7 @@ self.send_command(VehicleCommand.VEHICLE_CMD_DO_VTOL_TRANSITION, 3.0)  # 3=MC
 
 ```python
 # 先切 POSCTL (PX4 才允许 VTOL 过渡到固定翼前飞)
-self.send_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1.0, 22.0)   # 22 = POSCTL
+self.send_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1.0, 22.0)   # ← 22 不是 POSCTL!
 self.send_command(VehicleCommand.VEHICLE_CMD_DO_VTOL_TRANSITION, 4.0)
 ```
 
@@ -360,6 +360,65 @@ prompt: |
 ![图 14.1 过渡时间线](images/PLACEHOLDER-fig-ch14-transition-timeline.png)
 
 **图 14.1　demo 在 4 秒时认为过渡完成，而 PX4 要到 5 秒；这 1 秒的重叠区间里测到的不是巡航数据。**
+
+### 2.13 第二处缺陷：`param2=22` 其实没切到 POSCTL
+
+第 2.3 节说"必须先切 POSCTL"。但代码写的是：
+
+```python
+self.send_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1.0, 22.0)   # ← 22 不是 POSCTL!
+```
+
+**`DO_SET_MODE` 的 `param2` 直接就是主模式编号**（PX4 源码 `Commander.cpp`：`custom_main_mode = (uint8_t)cmd.param2`），按 `px4_custom_mode.h` 的枚举：
+
+| `param2` | 模式 |
+|---|---|
+| 1 | MANUAL |
+| 2 | ALTCTL |
+| **3** | **POSCTL** |
+| **6** | **OFFBOARD** |
+| 7 | STABILIZED |
+
+**22 不在枚举里。** 传无效值时，`Commander` 所有分支都不匹配，`desired_nav_state` 保持无效，**模式切换静默失败**。
+
+**所以真实情况是**：
+
+```text
+demo 以为：切到 POSCTL，然后发过渡
+实际：    模式没变（仍在 Offboard），然后发过渡
+```
+
+**这解释了更多现象**：
+
+| 现象 | 解释 |
+|---|---|
+| 过渡"看起来发出去了" | 命令确实发了，只是模式没变 |
+| 空速起不来 | 仍在 Offboard，而 Offboard 下没有前向指令 |
+| 状态机"跑通了" | 状态机只看自己发的命令，不看 PX4 是否真的切了 |
+
+**第三处缺陷**（也是最根本的）：**状态机不检查 PX4 的实际模式**。
+
+正确做法是每步都回读 `vehicle_status.nav_state` 确认：
+
+```python
+# 切 POSCTL 后，确认真的切了
+if self.status.nav_state == 22:      # 注意：22 是错的判据，应为 2
+    ...
+```
+
+**注意这里还有一个连带问题**：如果代码里用 `nav_state == 22` 判断"已切 POSCTL"，那永远不成立（POSCTL 是 2）。
+
+**三处缺陷串起来**：
+
+| 缺陷 | 层 | 后果 |
+|---|---|---|
+| ① `param2=22` 无效 | 命令层 | 模式没切 |
+| ② `FW_CRUISE` 不发前向指令 | 控制层 | 空速起不来 |
+| ③ 不校验实际模式 | 状态机层 | 出错也不自知 |
+
+**这就是"代码全对、结果不对"的完整链条**——三层各自都有问题，但每层单独看都"像是对的"。
+
+> **教训**：每发一条模式命令，都该**回读状态确认**。**发命令不等于生效**——这与第 11 章"日志说执行了但实际没动"是同一条。
 
 ---
 
@@ -599,7 +658,7 @@ sp.velocity = [12.0, 0.0, 0.0]             # 前向 12 m/s（NED 的 x 是北/�
 | 段 | 内容 |
 |---|---|
 | 1 要实现的功能 | 跳过 POSCTL 直接发过渡，观察现象 |
-| 2 通信骨架/前置 | 注释掉 `DO_SET_MODE(22)` 那一行 |
+| 2 通信骨架/前置 | 注释掉 `DO_SET_MODE(1.0, 22.0)` 那一行 |
 | 3 AI 提示 | 先观察，再问：<br>"我去掉 POSCTL 后，过渡命令发出但飞机没转模态（贴日志）。请只解释：为什么模式会阻止过渡？**一句话。**" |
 | 4 执行步骤 | ① 改代码 ② 跑 ③ 记 `nav_state` 与空速 ④ 恢复 ⑤ 对比 |
 | 5 验收标准 | □ 能复现无效 □ 能说出前置条件 □ 恢复后过渡成功 |
@@ -663,7 +722,7 @@ sp.velocity = [12.0, 0.0, 0.0]             # 前向 12 m/s（NED 的 x 是北/�
    > 要点：升力来自气流，零速无升力。
 
 3. POSCTL 的模式号是多少？
-   > 要点：22（`DO_SET_MODE` 的 `param2`）。
+   > 要点：**3**（`DO_SET_MODE` 的 `param2` 对应 POSCTL）。注意代码里写的是 22，那是无效值。
 
 **进阶**
 
@@ -732,7 +791,7 @@ sp.velocity = [12.0, 0.0, 0.0]             # 前向 12 m/s（NED 的 x 是北/�
 
 | 项 | 值 | 含义 |
 |---|---|---|
-| `DO_SET_MODE` | `param2 = 22` | POSCTL |
+| `DO_SET_MODE` | `param2 = 3` | POSCTL（**代码里误写为 22，无效**） |
 | `DO_VTOL_TRANSITION` | `param1 = 4` | 切固定翼 |
 | `DO_VTOL_TRANSITION` | `param1 = 3` | 切多旋翼 |
 

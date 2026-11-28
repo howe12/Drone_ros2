@@ -727,7 +727,9 @@ ros2 topic hz   /x500_0/fmu/out/vehicle_status
 | `arming_state` | 1 | 已上锁（disarmed） |
 | `arming_state` | 2 | 已解锁（armed） |
 | `nav_state` | 14 | Offboard |
-| `nav_state` | 22 | Position |
+| `nav_state` | 2 | Position（POSCTL） |
+
+> ⚠️ **`nav_state` 的 22 不是 Position**——它是 `AUTO_VTOL_TAKEOFF`。第 14 章代码里那句 `DO_SET_MODE(1, 22)` 的注释"22 = POSCTL"是错的，正确值见下。
 | `nav_state` | 18 | Land |
 
 ### QoS 预设
@@ -736,6 +738,40 @@ ros2 topic hz   /x500_0/fmu/out/vehicle_status
 |---|---|---|---|
 | `QOS_PUB` | BEST_EFFORT | VOLATILE | 发布设定点/命令 |
 | `QOS_SUB` | BEST_EFFORT | TRANSIENT_LOCAL | 订阅状态 |
+
+
+### `DO_SET_MODE` 的 `param2` 到底取什么
+
+查 PX4 源码 `src/modules/commander/Commander.cpp`：
+
+```c
+uint8_t custom_main_mode = (uint8_t)cmd.param2;   // ← 直接取 param2
+uint8_t custom_sub_mode  = (uint8_t)cmd.param3;
+```
+
+再对照 `px4_custom_mode.h` 的枚举（从 1 开始）：
+
+| `param2` | 模式 | 说明 |
+|---|---|---|
+| 1 | MANUAL | 全手动 |
+| 2 | ALTCTL | 定高 |
+| **3** | **POSCTL** | 定点 |
+| 4 | AUTO | 自动（配合 `param3` 选子模式） |
+| 5 | ACRO | 特技 |
+| **6** | **OFFBOARD** | 外部控制（本课程） |
+| 7 | STABILIZED | 增稳 |
+
+**所以：**
+
+```python
+DO_SET_MODE(1.0, 6.0)     # ✅ 切 Offboard
+DO_SET_MODE(1.0, 3.0)     # ✅ 切 POSCTL
+DO_SET_MODE(1.0, 22.0)    # ❌ 无效（22 不在枚举里）
+```
+
+**`param2` 传无效值会怎样**：`Commander` 的所有 `if-else` 分支都不匹配，`desired_nav_state` 保持 `NAVIGATION_STATE_MAX`（无效），**模式切换静默失败**。
+
+**这是一处真实的坑**：第 14 章的 `vtol_demo` 就写了 `DO_SET_MODE(1.0, 22.0)` 并注释"22 = POSCTL"——**它其实没切成功**。
 
 ### 模式切换的两个前提
 
