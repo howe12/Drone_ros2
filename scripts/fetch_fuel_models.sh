@@ -60,6 +60,14 @@ fetch GoogleResearch "CITY_TAXI_POLICE_CAR" 1 yolo_car || ok=1
 # 树木: 让画面有自然背景 (COCO 不含 tree 类, 但场景更真实; 配合 YOLO-World 可直接检出)
 fetch OpenRobotics "Oak%20tree" 1 oak_tree || ok=1
 fetch OpenRobotics "Pine%20Tree" 1 pine_tree || ok=1
+# 室内大厅 (indoor_hall 世界) 的家具
+fetch OpenRobotics "SquareShelf" 1 SquareShelf || ok=1
+fetch OpenRobotics "Desk" 1 Desk || ok=1
+fetch OpenRobotics "VisitorChair" 1 VisitorChair || ok=1
+fetch OpenRobotics "Cardboard%20box" 1 cardboard_box || ok=1
+fetch OpenRobotics "Euro%20pallet" 1 euro_pallet || ok=1
+fetch OpenRobotics "Pallet_Rack_Section" 1 pallet_rack_section || ok=1
+fetch OpenRobotics "Fridge" 1 Fridge || ok=1
 
 if [ "$ok" -eq 0 ]; then
   echo

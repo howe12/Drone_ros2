@@ -122,11 +122,17 @@ xtd2)
     }
     trap cleanup_xtd2 EXIT
     # 日志写 /develop 大盘并限幅 (磁盘安全, 见 README)
+    # 出生点可由 env 覆盖: SPAWN_X / SPAWN_Y / SPAWN_Z (室内场景常用, 避免生成在墙里)
+    SPAWN_ARGS=()
+    [ -n "${SPAWN_X:-}" ] && SPAWN_ARGS+=(x:="$SPAWN_X")
+    [ -n "${SPAWN_Y:-}" ] && SPAWN_ARGS+=(y:="$SPAWN_Y")
+    [ -n "${SPAWN_Z:-}" ] && SPAWN_ARGS+=(z:="$SPAWN_Z")
     ros2 launch xtd2_launch ros2_single_vehicle_demo_launch.py \
         px4_dir:="$ROOT/PX4-Autopilot" \
         model_name:="$MODEL" \
         namespace:="$NS" \
-        world_name:="${WORLD:-aruco}" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
+        world_name:="${WORLD:-aruco}" \
+        "${SPAWN_ARGS[@]}" 2>&1 | bash "$ROOT/scripts/capped_log.sh" "$LOGDIR/xtd2_sim.log" 50
     ;;
 
 *)

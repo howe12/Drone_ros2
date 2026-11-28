@@ -380,7 +380,7 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 |---|---|
 | 1 要实现的功能 | 飞机自动起飞到 5m、悬停、降落上锁，日志出现"演示完成 ✔" |
 | 2 通信骨架/前置 | 栈已启动；节点发 `/x500_0/fmu/in/{offboard_control_mode, trajectory_setpoint, vehicle_command}`，收 `/x500_0/fmu/out/{vehicle_status, vehicle_local_position}` |
-| 3 AI 提示 | 先自己判断问题可能在代理/话题/模式哪一段，再问 AI：<br>"你是 ROS2 无人机助教。环境 PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic，命名空间 `/x500_0`，发布端 QoS 为 BEST_EFFORT+VOLATILE。我运行 `ros2 run drone_sim offboard_demo --ros-args -p px4_ns:=/x500_0` 后飞机没起飞。请按'话题→QoS→模式→命令'给排查步骤，每条附要执行的 ros2 命令，先给命令清单。" |
+| 3 AI 提示 | 先自己判断问题可能在代理/话题/模式哪一段，再问 AI（**只许问排查顺序，不许要答案**）：<br>"环境 PX4 v1.15.4 / ROS2 Humble，命名空间 `/x500_0`。我的节点没让飞机起飞。**只告诉我按什么顺序查、每一步看什么现象，不要给我命令和结论**——命令我自己写。" |
 | 4 执行步骤 | ① 启动栈等到 `Ready for takeoff!` ② 新终端 source 两层环境 ③ 跑命令 ④ 观察日志与 Gazebo ⑤ `ros2 topic echo /x500_0/fmu/out/vehicle_status --once` 看 `arming_state` 是否 1→2→1<br>**验证 AI 的说法**：用 `ros2 topic list \| grep fmu`、`ps -ef \| grep MicroXRCEAgent` 确认代理与话题真实存在——AI 可能忽略 Agent 或用错话题前缀 |
 | 5 验收标准 | □ 日志四行齐全 □ 窗口看到爬升与降落 □ `grade.py` 三项 PASS □ 能解释 `arming_state` 1 和 2 的含义 |
 | 6 原理 + 扩学 | 教**整条链路可用性**。扩学：`circle_duration` 设 10，观察遥测 x/y 是否落在半径 3m 圆上 |
@@ -391,7 +391,7 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 |---|---|
 | 1 要实现的功能 | 起飞到 8m 并画 10 秒圆 |
 | 2 通信骨架/前置 | 同任务卡 1；旋钮都是 ROS2 参数，用 `-p 名字:=值` 覆盖 |
-| 3 AI 提示 | 先自己从源码找参数名，再问 AI 核对：<br>"drone_sim 的 offboard_demo 用 ROS2 参数配置。给我一条 `ros2 run` 命令：起飞 8m、画圆 10s、半径 5m，并说明每个 `-p` 参数的默认值和单位。环境 PX4 v1.15.4 / ROS2 Humble。" |
+| 3 AI 提示 | **先自己 grep 出参数名并写出命令**，再让 AI 挑错：<br>"我自己写了这条命令（贴我的命令）。请只指出：参数名有没有错、单位对不对、漏了哪个必填项。**不要给我新命令。**" |
 | 4 执行步骤 | 从源码 `grep declare_parameter offboard_demo.py` 找参数名 → 再跑<br>**验证 AI 的说法**：AI 可能编造参数名，以 `declare_parameter` 的实际输出为准 |
 | 5 验收标准 | □ 到达 8m（遥测 z≈-8）□ 画圆半径≈5m □ `grade.py` 仍 PASS |
 | 6 原理 + 扩学 | 教**参数化优于改代码**。扩学：加一个 `yaw_rate` 参数让飞机边飞边转 |
@@ -401,8 +401,8 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 | 段 | 内容 |
 |---|---|
 | 1 要实现的功能 | 亲手制造并修复一个起步故障 |
-| 2 通信骨架/前置 | 先用 `pkill -x MicroXRCEAgent` 杀掉 Agent，再跑 offboard_demo |
-| 3 AI 提示 | 先自己观察现象，再问 AI：<br>"我的 ROS2 节点一直打印'等待 PX4 状态...'，`ros2 topic list` 看不到 /x500_0/fmu 话题。环境 PX4 v1.15.4 / ROS2 Humble / Gazebo Harmonic。请列出三个最可能原因和验证命令。" |
+| 2 通信骨架/前置 | **无 AI 区：本卡禁止使用 AI**。先用 `pkill -x MicroXRCEAgent` 杀掉 Agent，再跑 offboard_demo |
+| 3 AI 提示 | 本卡不使用 AI。卡住可查 [故障实验室](faq.md)、看节点日志、读 `offboard_demo.py` 的 `loop()`；把排查过程写进笔记。 |
 | 4 执行步骤 | ① 杀 Agent ② 跑节点观察"等待 PX4 状态" ③ `ros2 topic list \| grep fmu` 验证话题消失 ④ 重启 Agent 恢复<br>**验证 AI 的说法**：按它给的命令逐条执行，把输出反馈给它，而不是直接采信结论 |
 | 5 验收标准 | □ 能复现"无话题、节点空转" □ 能说出 Agent 在链路中的位置 □ 恢复后首飞 PASS |
 | 6 原理 + 扩学 | 教**链路分段排障法**：先桥、再话题，最后 QoS 与模式 |
@@ -415,10 +415,10 @@ gz_x500_lidar_3d   → /x500_lidar_3d_0
 - [ ] 我能改参数（高度/半径/角速度）飞出不同轨迹，并预判耗时变化
 - [ ] 我能复现并修复"Agent 缺失导致话题消失"的故障
 - [ ] 我能说出 Gazebo / PX4 SITL / ROS2 节点三者的分工
-- [ ] 若用了 AI 辅助，我能解释它给出的命令或代码，并用上面的命令验证过
+- [ ] 我能关掉 AI，独立复现本章实验，并回答追问
 
-> 本课程所有任务都可以用 AI 辅助（解释报错、生成片段、优化思路），方法见 [AI 协作指南](AI_GUIDE.md)。
-> 注意：本课程锁版本且打过补丁，AI 的通用答案可能不适用——**要用命令验证**，不要直接照抄。
+> AI 可以帮你理解报错、解释概念、指出代码问题，但**不替你写实现**；任务卡 3 起为无 AI 区。
+> 规则见 [AI 使用指南](AI_GUIDE.md)；本课程锁版本，AI 的通用答案要用命令验证。
 
 ## 小结与下一步
 

@@ -1,0 +1,276 @@
+diff --git a/xtd2_gz_sim/worlds/indoor_hall.sdf b/xtd2_gz_sim/worlds/indoor_hall.sdf
+new file mode 100644
+index 0000000..03b89c2
+--- /dev/null
++++ b/xtd2_gz_sim/worlds/indoor_hall.sdf
+@@ -0,0 +1,270 @@
++<sdf version="1.9">
++  <world name="indoor_hall">
++    <physics type="ode">
++      <max_step_size>0.004</max_step_size>
++      <real_time_factor>1.0</real_time_factor>
++      <real_time_update_rate>250</real_time_update_rate>
++    </physics>
++    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
++    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
++    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
++    <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
++    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
++    <plugin filename="gz-sim-air-pressure-system" name="gz::sim::systems::AirPressure"/>
++    <plugin filename="gz-sim-apply-link-wrench-system" name="gz::sim::systems::ApplyLinkWrench"/>
++    <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
++    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
++      <render_engine>ogre2</render_engine>
++    </plugin>
++
++    <gui fullscreen="false">
++      <!-- 3D scene -->
++      <plugin filename="MinimalScene" name="3D View">
++        <gz-gui>
++          <title>3D View</title>
++          <property type="bool" key="showTitleBar">false</property>
++          <property type="string" key="state">docked</property>
++        </gz-gui>
++        <engine>ogre2</engine>
++        <scene>scene</scene>
++        <ambient_light>0.4 0.4 0.4</ambient_light>
++        <background_color>0.8 0.8 0.8</background_color>
++        <camera_pose>-3 -8.5 2.8 0 0.30 0</camera_pose>
++        <camera_clip>
++          <near>0.25</near>
++          <far>25000</far>
++        </camera_clip>
++      </plugin>
++      <!-- Plugins that add functionality to the scene -->
++      <plugin filename="EntityContextMenuPlugin" name="Entity context menu">
++        <gz-gui>
++          <property key="state" type="string">floating</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="GzSceneManager" name="Scene Manager">
++        <gz-gui>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="InteractiveViewControl" name="Interactive view control">
++        <gz-gui>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="CameraTracking" name="Camera Tracking">
++        <gz-gui>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="MarkerManager" name="Marker manager">
++        <gz-gui>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="SelectEntities" name="Select Entities">
++        <gz-gui>
++          <anchors target="Select entities">
++            <line own="right" target="right"/>
++            <line own="top" target="top"/>
++          </anchors>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="VisualizationCapabilities" name="Visualization Capabilities">
++        <gz-gui>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin filename="Spawn" name="Spawn Entities">
++        <gz-gui>
++          <anchors target="Select entities">
++            <line own="right" target="right"/>
++            <line own="top" target="top"/>
++          </anchors>
++          <property key="resizable" type="bool">false</property>
++          <property key="width" type="double">5</property>
++          <property key="height" type="double">5</property>
++          <property key="state" type="string">floating</property>
++          <property key="showTitleBar" type="bool">false</property>
++        </gz-gui>
++      </plugin>
++      <plugin name="World control" filename="WorldControl">
++        <gz-gui>
++          <title>World control</title>
++          <property type="bool" key="showTitleBar">0</property>
++          <property type="bool" key="resizable">0</property>
++          <property type="double" key="height">72</property>
++          <property type="double" key="width">121</property>
++          <property type="double" key="z">1</property>
++          <property type="string" key="state">floating</property>
++          <anchors target="3D View">
++            <line own="left" target="left"/>
++            <line own="bottom" target="bottom"/>
++          </anchors>
++        </gz-gui>
++        <play_pause>1</play_pause>
++        <step>1</step>
++        <start_paused>1</start_paused>
++      </plugin>
++      <plugin name="World stats" filename="WorldStats">
++        <gz-gui>
++          <title>World stats</title>
++          <property type="bool" key="showTitleBar">0</property>
++          <property type="bool" key="resizable">0</property>
++          <property type="double" key="height">110</property>
++          <property type="double" key="width">290</property>
++          <property type="double" key="z">1</property>
++          <property type="string" key="state">floating</property>
++          <anchors target="3D View">
++            <line own="right" target="right"/>
++            <line own="bottom" target="bottom"/>
++          </anchors>
++        </gz-gui>
++        <sim_time>1</sim_time>
++        <real_time>1</real_time>
++        <real_time_factor>1</real_time_factor>
++        <iterations>1</iterations>
++      </plugin>
++      <plugin name="Entity tree" filename="EntityTree"/>
++    </gui>
++    <gravity>0 0 -9.8</gravity>
++    <scene>
++      <ambient>0.88 0.88 0.86 1</ambient>
++      <background>0.78 0.82 0.86 1</background>
++      <shadows>1</shadows>
++    </scene>
++    <light type="point" name="lamp0">
++      <pose>-6 -6 4.3 0 0 0</pose>
++      <diffuse>1 0.98 0.92 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <attenuation><range>25</range><constant>0.6</constant><linear>0.12</linear><quadratic>0.02</quadratic></attenuation>
++    </light>
++    <light type="point" name="lamp1">
++      <pose>6 -6 4.3 0 0 0</pose>
++      <diffuse>1 0.98 0.92 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <attenuation><range>25</range><constant>0.6</constant><linear>0.12</linear><quadratic>0.02</quadratic></attenuation>
++    </light>
++    <light type="point" name="lamp2">
++      <pose>-6 6 4.3 0 0 0</pose>
++      <diffuse>1 0.98 0.92 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <attenuation><range>25</range><constant>0.6</constant><linear>0.12</linear><quadratic>0.02</quadratic></attenuation>
++    </light>
++    <light type="point" name="lamp3">
++      <pose>6 6 4.3 0 0 0</pose>
++      <diffuse>1 0.98 0.92 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <attenuation><range>25</range><constant>0.6</constant><linear>0.12</linear><quadratic>0.02</quadratic></attenuation>
++    </light>
++    <light type="point" name="lamp4">
++      <pose>0 0 4.3 0 0 0</pose>
++      <diffuse>1 0.98 0.92 1</diffuse>
++      <specular>0.3 0.3 0.3 1</specular>
++      <attenuation><range>25</range><constant>0.6</constant><linear>0.12</linear><quadratic>0.02</quadratic></attenuation>
++    </light>
++    <light type="directional" name="sun">
++      <cast_shadows>true</cast_shadows>
++      <pose>0 0 14 0 0 0</pose>
++      <diffuse>0.95 0.95 0.95 1</diffuse>
++      <specular>0.2 0.2 0.2 1</specular>
++      <direction>-0.3 0.2 -0.92</direction>
++    </light>
++
++    <model name="floor"><static>true</static><pose>0 0 -0.1 0 0 0</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 20.0 0.2</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 20.0 0.2</size></box></geometry>
++        <material><ambient>0.66 0.66 0.64 1</ambient><diffuse>0.66 0.66 0.64 1</diffuse></material></visual>
++    </link></model>
++    <model name="ceiling"><static>true</static><pose>0 0 4.699999999999999 0 0 0</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 20.0 0.2</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 20.0 0.2</size></box></geometry>
++        <material><ambient>0.85 0.85 0.85 1</ambient><diffuse>0.85 0.85 0.85 1</diffuse></material></visual>
++    </link></model>
++    <model name="wall_n"><static>true</static><pose>0 10.0 2.3 0 0 0</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 0.3 4.6</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 0.3 4.6</size></box></geometry>
++        <material><ambient>0.80 0.78 0.75 1</ambient><diffuse>0.80 0.78 0.75 1</diffuse></material></visual>
++    </link></model>
++    <model name="wall_s"><static>true</static><pose>0 -10.0 2.3 0 0 0</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 0.3 4.6</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 0.3 4.6</size></box></geometry>
++        <material><ambient>0.80 0.78 0.75 1</ambient><diffuse>0.80 0.78 0.75 1</diffuse></material></visual>
++    </link></model>
++    <model name="wall_e"><static>true</static><pose>10.0 0 2.3 0 0 1.5708</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 0.3 4.6</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 0.3 4.6</size></box></geometry>
++        <material><ambient>0.80 0.78 0.75 1</ambient><diffuse>0.80 0.78 0.75 1</diffuse></material></visual>
++    </link></model>
++    <model name="wall_w"><static>true</static><pose>-10.0 0 2.3 0 0 1.5708</pose><link name="l">
++      <collision name="c"><geometry><box><size>20.0 0.3 4.6</size></box></geometry></collision>
++      <visual name="v"><geometry><box><size>20.0 0.3 4.6</size></box></geometry>
++        <material><ambient>0.80 0.78 0.75 1</ambient><diffuse>0.80 0.78 0.75 1</diffuse></material></visual>
++    </link></model>
++
++    <!-- 家具: Gazebo Fuel (scripts/fetch_fuel_models.sh 下载) -->
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_0</name><pose>-9.0 -7.5 0 0 0 1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_1</name><pose>9.0 -7.5 0 0 0 -1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_2</name><pose>-9.0 -2.5 0 0 0 1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_3</name><pose>9.0 -2.5 0 0 0 -1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_4</name><pose>-9.0 2.5 0 0 0 1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_5</name><pose>9.0 2.5 0 0 0 -1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_6</name><pose>-9.0 7.5 0 0 0 1.5708</pose></include>
++    <include><uri>model://SquareShelf</uri><name>SquareShelf_7</name><pose>9.0 7.5 0 0 0 -1.5708</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_8</name><pose>-3.5 -6.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_9</name><pose>-3.5 -7.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_10</name><pose>0.0 -6.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_11</name><pose>0.0 -7.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_12</name><pose>3.5 -6.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_13</name><pose>3.5 -7.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_14</name><pose>-3.5 -3.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_15</name><pose>-3.5 -4.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_16</name><pose>0.0 -3.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_17</name><pose>0.0 -4.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://Desk</uri><name>Desk_18</name><pose>3.5 -3.0 0 0 0 1.5708</pose></include>
++    <include><uri>model://VisitorChair</uri><name>VisitorChair_19</name><pose>3.5 -4.2 0 0 0 3.1416</pose></include>
++    <include><uri>model://pallet_rack_section</uri><name>pallet_rack_section_20</name><pose>-5.0 8.5 0 0 0 0</pose></include>
++    <include><uri>model://pallet_rack_section</uri><name>pallet_rack_section_21</name><pose>5.0 8.5 0 0 0 0</pose></include>
++    <include><uri>model://euro_pallet</uri><name>euro_pallet_22</name><pose>-6.5 7.0 0 0 0 0</pose></include>
++    <include><uri>model://euro_pallet</uri><name>euro_pallet_23</name><pose>-4.5 7.0 0 0 0 0</pose></include>
++    <include><uri>model://euro_pallet</uri><name>euro_pallet_24</name><pose>4.5 7.0 0 0 0 0</pose></include>
++    <include><uri>model://euro_pallet</uri><name>euro_pallet_25</name><pose>6.5 7.0 0 0 0 0</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_26</name><pose>-7.5 5.5 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_27</name><pose>-7.5 5.5 0.55 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_28</name><pose>-6.6 5.5 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_29</name><pose>7.5 5.5 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_30</name><pose>7.5 5.5 0.55 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_31</name><pose>-2.0 -9.0 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_32</name><pose>0.0 -9.0 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_33</name><pose>2.0 -9.0 0 0 0 0.3</pose></include>
++    <include><uri>model://cardboard_box</uri><name>cardboard_box_34</name><pose>2.6 -9.0 0 0 0 0.3</pose></include>
++    <include><uri>model://Fridge</uri><name>Fridge_35</name><pose>8.4 9.0 0 0 0 -0.6</pose></include>
++  </world>
++</sdf>

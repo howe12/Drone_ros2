@@ -203,7 +203,9 @@ bash scripts/run_simulation.sh classic [机型] [世界] # Gazebo Classic（本�
   `gz_x500_lidar_2d` / `gz_x500_lidar_3d` / `gz_x500_mono_cam` / `gz_x500_mono_cam_down` /
   `gz_standard_vtol` / `gz_rc_cessna` / `gz_r1_rover` / `gz_px4vision` / `gz_omnicopter` …）
 - **世界切换** = 第三个参数，可用 `aruco` / `walls` / `baylands` / `lawn` / `windy` /
-  `e7_obstacles` / `yolo_targets` 等（完整清单见 [docs/SCENARIOS.md](docs/SCENARIOS.md)）
+  `e7_obstacles` / `yolo_targets` / `indoor_hall` 等（完整清单见 [docs/SCENARIOS.md](docs/SCENARIOS.md)）
+- **出生点**可用环境变量覆盖（室内场景常用，避免生成在墙里）：
+  `SPAWN_X=-4 SPAWN_Y=-9 SPAWN_Z=0.3 bash scripts/run_simulation.sh xtd2 gz_x500 indoor_hall`
 - 注意：ROS1 版 XTDrone 的算法不能直接混入本 Humble 工作区，需要时按包单独移植
 
 ### 集成时踩过的坑（已全部固化为补丁）
@@ -356,6 +358,7 @@ bash scripts/grade_all.sh                                     # 批量跑全部
 | 现象 | 原因 |
 |---|---|
 | 螺旋桨桨尖被误检为 `airplane 0.4~0.8`（**本页 YOLO 视频已用类别过滤规避**）| **已用量测确认**：桨叶直径 **0.293m**（STL 0.346m × 缩放 0.846），桨盘内缘相对相机在 **水平 −46.9° / 垂直 +36.3°**，而相机视野为 ±49.8° / ±41.6° —— 桨尖正好扫进画面上方两角；高速旋转形成拖影，YOLO 按形状判成 `airplane`。可用类别过滤或把相机前移/缩窄 FOV 规避 |
+| 室内起飞不爬升 | `indoor_hall` 中解锁正常、机载画面正常，但指令起飞 2 m 后停在 0.3 m；日志有 `Preflight Fail: ekf2 missing data`，疑似室内 EKF 高度估计问题 |
 | 树木检不出 / 被误检为 `airplane` | 树是**纯黑剪影**。根因已查清：`baylands` 的 Fuel 模型里网格/贴图 URI 是 https 绝对地址，网络受限时贴图加载失败（可跑 `bash scripts/fix_fuel_offline.sh` 改写为本地路径）；但树本身还涉及 DAE 内部材质，改 URI 后仍可能是黑的 |
 
 **开放词表（YOLO-World）支持**：节点可用任意文本类别，不局限 COCO 80 类

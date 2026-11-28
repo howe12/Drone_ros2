@@ -1,5 +1,4 @@
 - [课程首页](README.md)
-- [AI 协作指南（学生用）](AI_GUIDE.md)
 
 - **第一部分 · 基础**
   - [00 认识无人机与仿真（背景）](course/00-basics.md)
@@ -32,6 +31,7 @@
   - [故障实验室（FAQ）](faq.md)
 
 - **附录 · 参考手册**
+  - [AI 使用指南（学生用）](AI_GUIDE.md)
   - [术语表](GLOSSARY.md)
   - [课程大纲与知识点覆盖](COURSE_OUTLINE.md)
   - [课程编写规范](AUTHORING.md)

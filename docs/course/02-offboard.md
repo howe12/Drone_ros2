@@ -333,7 +333,7 @@ how: |
 |---|---|
 | 1 要实现的功能 | 起飞到 3m，悬停后自动降落，日志出现降落/上锁 |
 | 2 通信骨架/前置 | 栈已启动；用 `PX4Interface(ns='/x500_0', target_system=1)`；10Hz 定时器 |
-| 3 参考 prompt | "用 drone_sim 的 PX4Interface 写一个 ROS2 节点：起飞到 3m 后降落。要求：只用 heartbeat_position、request_offboard_and_arm、land、alt、ekf_stable，10Hz 定时器，先给完整可运行代码，中文注释，不要讲理论。" |
+| 3 AI 提示 | **先自己写**（本章 2.x 已给最小范式，照着改成 3m 悬停），写完再问：<br>"这是我自己写的 hover_node（贴代码）。请只指出三件事：有没有 10Hz 定时器、解锁前有没有检查 ekf_stable、心跳有没有每拍都发。**只列问题，不要给完整代码。**" |
 | 4 执行步骤 | ① 新建 `hover_node.py` ② 在 `setup.py` 注册 ③ `colcon build --packages-select drone_sim` ④ `ros2 run drone_sim hover_node` ⑤ 另开终端 echo `vehicle_status` 观察 |
 | 5 验收标准 | □ 飞机爬升到约 3m（终端 B 中 `arming_state` 1→2）□ 自动降落并上锁 □ 未出现"等待 PX4 状态" |
 | 6 原理 + 扩学 | 教**Offboard 三要素与统一接口**。扩学：把悬停改成"到 3m 后前进 5m 再降落" |
@@ -344,7 +344,7 @@ how: |
 |---|---|
 | 1 要实现的功能 | 证明 `pos.z` 与 `alt()` 符号相反，并解释 |
 | 2 通信骨架/前置 | 订阅 `/x500_0/fmu/out/vehicle_local_position`；接口 `alt()` |
-| 3 参考 prompt | "PX4 NED 坐标系里 pos.z 向下为正，接口 alt() 向上为正。给我一段代码：在节点里同时打印 pos.z 与 alt()，并说明起飞 5m 时两者分别是什么值。" |
+| 3 AI 提示 | 先自己加这行打印、跑出真实数值，再让 AI 判对错：<br>"PX4 用 NED（z 向下为正），接口 alt() 向上为正。我起飞 5m 时实测 pos.z 与 alt() 分别是这两个数（贴数值）。请判断我的理解对不对、为什么符号相反。**不要写代码，只做判断。**" |
 | 4 执行步骤 | ① 在 `hover_node` 的 loop 里加一行日志 ② 重编运行 ③ 记录起飞后的两个值 |
 | 5 验收标准 | □ 能说出起飞 5m 时 `pos.z ≈ -5`、`alt() ≈ 5` □ 能解释 NED 与 ENU 的 z 方向差异 |
 | 6 原理 + 扩学 | 教**坐标系符号**。扩学：用 `enu_to_ned()` 把 Gazebo 世界系目标转成 PX4 设定点 |
@@ -354,8 +354,8 @@ how: |
 | 段 | 内容 |
 |---|---|
 | 1 要实现的功能 | 复现 RELIABLE 发布端死锁并修复 |
-| 2 通信骨架/前置 | 备份 `px4_interface.py`，改 `QOS_PUB.reliability = RELIABLE` |
-| 3 AI 提示 | 现象先自己记下来（进程在、CPU 不动、不发消息），再问 AI：<br>"环境 PX4 v1.15.4 / ROS2 Humble，统一接口 `drone_sim.px4_interface.PX4Interface`。我的 ROS2 节点进程还在但 CPU 不增长、也不发消息，怀疑 FastDDS 共享内存流控阻塞。请给出用 ps 观察 CPU 时间、以及检查 QoS 是否 RELIABLE 的命令。" |
+| 2 通信骨架/前置 | **无 AI 区：本卡禁止使用 AI**。备份 `px4_interface.py`，改 `QOS_PUB.reliability = RELIABLE` |
+| 3 AI 提示 | 本卡不使用 AI。卡住可查 [故障实验室](faq.md)、读 `px4_interface.py` 开头的 QoS 注释、用 `ps -o time` 观察 CPU 时间。 |
 | 4 执行步骤 | ① 改 QoS 重编 ② 运行节点 ③ `ps -o time -p <pid>` 两次对比 ④ 改回 BEST_EFFORT 重编验证恢复<br>**验证 AI 的说法**：用 `grep -n "QOS_PUB" ros2_ws/src/drone_sim/drone_sim/px4_interface.py` 核对课程实际配置，不要只按 AI 给的默认 RELIABLE 理解 |
 | 5 验收标准 | □ 能复现 CPU 冻结 □ 能说明发布端与订阅端 QoS 应分别是什么 □ 改回后节点正常飞行 |
 | 6 原理 + 扩学 | 教**QoS 匹配**。扩学：检查一个订阅端若用默认 RELIABLE 会怎样（静默收不到） |
@@ -368,10 +368,10 @@ how: |
 - [ ] 我能用 `PX4Interface` 写出起飞—悬停—降落节点并跑通
 - [ ] 我能解释 `ekf_stable` 门控在防"贴地爬行"中的作用
 - [ ] 我能复现并修复 QoS RELIABLE 导致的死锁
-- [ ] 若用 AI 生成过代码，我能解释每一行，并用 `grep` 核对过字段名与版本差异
+- [ ] 我能关掉 AI，独立写出 hover_node 并跑通
 
-> 写节点、改参数、修故障都可以让 AI 打草稿（见 [AI 协作指南](AI_GUIDE.md)），但本课程锁版本：
-> 例如 `OffboardControlMode` 在 1.15 里是 `thrust_and_torque`/`direct_actuator`，没有旧版的 `actuator`——**AI 给的要自己核对**。
+> AI 可以解释 `actuator` 这类字段差异、指出你代码的问题，但**不替你写实现**；任务卡 3 起为无 AI 区。
+> 规则见 [AI 使用指南](AI_GUIDE.md)。
 
 - [ ] 我能说出 Offboard 的三个动作及正确顺序
 - [ ] 我能解释为什么切 Offboard 前必须先预流设定点

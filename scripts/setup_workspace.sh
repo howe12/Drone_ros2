@@ -65,6 +65,7 @@ git -C third_party/XTDrone2 apply "$ROOT/patches/0013-xtd2-downcam-autostart.pat
 git -C third_party/XTDrone2 apply "$ROOT/patches/0015-xtd2-3d-lidar-model-bridge.patch" 2>/dev/null || echo "  补丁15已应用, 跳过"
 # E7: 避障世界
 git -C third_party/XTDrone2 apply "$ROOT/patches/0016-xtd2-e7-obstacle-world.patch" 2>/dev/null || echo "  补丁16已应用, 跳过"
+git -C third_party/XTDrone2 apply "$ROOT/patches/0020-xtd2-indoor-hall-world.patch" 2>/dev/null || echo "  补丁20已应用, 跳过"
 
 # E13: indoor1 场景所需旧 Fuel 模型 (稀疏克隆, 实体复制——os.walk 不跟随符号链接)
 if [ ! -d third_party/gazebo_models ]; then
