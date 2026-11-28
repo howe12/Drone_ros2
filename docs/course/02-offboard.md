@@ -473,6 +473,53 @@ how: |
 - [ ] 我能解释 `ekf_stable` 门控在防"贴地爬行"中的作用
 - [ ] 我能复现并修复 QoS RELIABLE 导致的死锁
 
+## 分层练习
+
+**基础**
+
+1. 目标高度 5m，NED 里 `z` 写多少？
+   > 要点：`-5.0`。
+
+2. `VEHICLE_CMD_DO_SET_MODE` 的 `param2=6.0` 表示什么？
+   > 要点：Custom 组内的 Offboard 编号（不是 `nav_state=14`）。
+
+3. 为什么切 Offboard 前要先发设定点？
+   > 要点：PX4 要求"先有流再切模式"，否则拒绝切换。
+
+**进阶**
+
+4. 把定时器从 10Hz 改成 1Hz，观察心跳是否触发 failsafe。
+
+5. 在 `loop()` 里加 `time.sleep(0.5)`，预测并验证现象（心跳断 → 自动降落）。
+
+6. 用 `ros2 topic hz` 分别测发布与订阅两侧的频率，解释差异。
+
+**挑战**
+
+7. 写一个节点，同时支持"位置设定点"与"速度设定点"两种模式，用参数切换。
+   > 要点：`OffboardControlMode` 里对应的布尔字段要同步切换。
+
+8. 设计一个"心跳看门狗"：发现设定点发布频率掉到阈值以下就主动告警。
+
+---
+
+## 自查 12 问
+
+1. Offboard 的字面意思与本质是什么？
+2. Offboard 三要素是哪三个？
+3. 为什么必须先预流设定点？
+4. 解锁与切模式的命令分别是什么？
+5. `nav_state=14` 与 `param2=6.0` 是什么关系？
+6. NED 的 z 为什么向下？
+7. `alt()` 与 `pos.z` 的关系是什么？
+8. `ekf_stable` 门控防的是什么？
+9. `QOS_PUB` 与 `QOS_SUB` 分别是什么组合？
+10. QoS 不匹配的两种表现（阻塞 vs 静默）？
+11. 心跳超时 `COM_OF_LOSS_T` 触发后会发生什么？
+12. EKF 原点重置为什么会导致"贴地爬行"？
+
+---
+
 ## 小结与下一步
 
 本章把第 1 章"会用"推进到"会写"：Offboard 三要素、NED 坐标、统一接口与两类典型故障（QoS 死锁、EKF 原点重置）都已在代码层面固化。
@@ -480,3 +527,47 @@ how: |
 现在你能控制单机按自己的逻辑飞。但真正的任务往往需要**多个航点**和轨迹可视化，也需要把状态机变成可配置的描述，而不是硬编码——这是第 3、4 章的内容（传感器与航点任务）。
 
 [下一章：传感器话题桥接 →](course/03-sensors.md)
+
+---
+
+## 附录：本章命令与参数速查
+
+### 观察状态
+
+```bash
+ros2 topic echo /x500_0/fmu/out/vehicle_status --once
+ros2 topic echo /x500_0/fmu/out/vehicle_local_position --once
+ros2 topic hz   /x500_0/fmu/out/vehicle_status
+```
+
+### 关键命令字
+
+| 命令 | `param1` | `param2` | 含义 |
+|---|---|---|---|
+| `VEHICLE_CMD_DO_SET_MODE` | 1.0 | 6.0 | 切 Offboard |
+| `VEHICLE_CMD_COMPONENT_ARM_DISARM` | 1.0 | 0.0 | 解锁 |
+| `VEHICLE_CMD_COMPONENT_ARM_DISARM` | 0.0 | 0.0 | 上锁 |
+| `VEHICLE_CMD_NAV_LAND` | — | — | 降落 |
+| `VEHICLE_CMD_NAV_RETURN_TO_LAUNCH` | — | — | 返航 |
+
+### 状态值对照
+
+| 字段 | 值 | 含义 |
+|---|---|---|
+| `arming_state` | 1 | 已上锁（disarmed） |
+| `arming_state` | 2 | 已解锁（armed） |
+| `nav_state` | 14 | Offboard |
+| `nav_state` | 22 | Position |
+| `nav_state` | 18 | Land |
+
+### QoS 预设
+
+| 预设 | Reliability | Durability | 用于 |
+|---|---|---|---|
+| `QOS_PUB` | BEST_EFFORT | VOLATILE | 发布设定点/命令 |
+| `QOS_SUB` | BEST_EFFORT | TRANSIENT_LOCAL | 订阅状态 |
+
+### 模式切换的两个前提
+
+1. 已预流设定点（≥ 20 拍 / 2 秒）；
+2. 当前状态允许切换（地面上未解锁时不允许）。
